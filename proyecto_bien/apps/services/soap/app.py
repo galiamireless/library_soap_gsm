@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from flask import Flask, Response, current_app, request, url_for
+import json
+from pathlib import Path
+
+from flask import Flask, Response, current_app, request, send_from_directory, url_for
+from swagger_ui_bundle import swagger_ui_path
 from werkzeug.exceptions import HTTPException
 
 try:
@@ -18,6 +22,38 @@ except ImportError:  # Allows ``python app.py`` from this directory too.
     from soap_service import SoapService
 
 
+SERVICE_DIR = Path(__file__).resolve().parent
+SWAGGER_UI_DIRECTORY = Path(swagger_ui_path)
+SWAGGER_UI_HTML = """<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Library Classifier API</title>
+    <link rel="stylesheet" href="__SWAGGER_CSS_URL__">
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="__SWAGGER_JS_URL__"></script>
+    <script>
+      window.addEventListener("load", function () {
+        window.ui = SwaggerUIBundle({
+          url: __SPEC_URL__,
+          dom_id: "#swagger-ui",
+          deepLinking: true,
+          displayRequestDuration: true,
+          docExpansion: "list",
+          filter: true,
+          tryItOutEnabled: true,
+          validatorUrl: null
+        });
+      });
+    </script>
+  </body>
+</html>
+"""
+
+
 def _format() -> str:
     return "json" if request.args.get("format", "xml").strip().lower() == "json" else "xml"
 
@@ -25,6 +61,8 @@ def _format() -> str:
 def _response(payload, output_format: str, status: int = 200):
     if output_format == "json":
         return Response(json_codec.dumps(payload), status=status, content_type="application/json; charset=utf-8")
+    if not isinstance(payload, (bytes, bytearray, str)):
+        payload = xml_codec.serialize_payload(payload)
     return Response(payload, status=status, content_type="application/xml; charset=utf-8")
 
 
@@ -55,6 +93,7 @@ def create_app(test_config: dict | None = None, *, repository=None) -> Flask:
             "max_size": settings.pool_max_size,
             "timeout": settings.pool_timeout,
         },
+        schema=settings.db_schema,
     )
     app.extensions["repository"] = repo
     app.extensions["soap_service"] = SoapService(repo)
@@ -67,7 +106,7 @@ def create_app(test_config: dict | None = None, *, repository=None) -> Flask:
         return _response({
             "service": "library-classifier",
             "status": "running",
-            "routes": ["/health", "/books", "/books/minimal", "/books/concepts", "/soap"],
+            "routes": ["/health", "/books", "/books/minimal", "/books/concepts", "/soap", "/docs"],
         }, _format())
 
     @app.get("/health")
@@ -113,6 +152,28 @@ def create_app(test_config: dict | None = None, *, repository=None) -> Flask:
             url_for("soap_endpoint", _external=True).encode("utf-8"),
         )
         return Response(payload, content_type="text/xml; charset=utf-8")
+
+    @app.get("/docs")
+    @app.get("/docs/")
+    def swagger_ui():
+        html = SWAGGER_UI_HTML.replace(
+            "__SPEC_URL__", json.dumps(url_for("openapi_specification"))
+        )
+        html = html.replace(
+            "__SWAGGER_CSS_URL__", url_for("swagger_ui_asset", filename="swagger-ui.css")
+        )
+        html = html.replace(
+            "__SWAGGER_JS_URL__", url_for("swagger_ui_asset", filename="swagger-ui-bundle.js")
+        )
+        return Response(html, content_type="text/html; charset=utf-8")
+
+    @app.get("/swagger-ui/<path:filename>")
+    def swagger_ui_asset(filename: str):
+        return send_from_directory(SWAGGER_UI_DIRECTORY, filename, conditional=True)
+
+    @app.get("/openapi.yaml")
+    def openapi_specification():
+        return send_from_directory(SERVICE_DIR, "openapi.yaml", mimetype="application/yaml", conditional=True)
 
     @app.post("/soap")
     def soap_endpoint():

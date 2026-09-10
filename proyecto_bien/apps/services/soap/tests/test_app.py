@@ -55,3 +55,27 @@ def test_legacy_cloud_concepts_alias_is_available():
 
     assert response.status_code == 200
     assert b"IaaS" in response.data
+
+
+def test_swagger_ui_and_openapi_are_served_locally():
+    app = create_app({"TESTING": True}, repository=FakeRepository())
+    client = app.test_client()
+
+    docs = client.get("/docs/")
+    specification = client.get("/openapi.yaml")
+
+    assert docs.status_code == 200
+    assert docs.mimetype == "text/html"
+    assert b"SwaggerUIBundle" in docs.data
+    assert b"/openapi.yaml" in docs.data
+    assert specification.status_code == 200
+    assert specification.mimetype in {"application/yaml", "text/yaml"}
+    assert b"openapi: 3.0.3" in specification.data
+
+
+def test_root_and_health_are_valid_xml():
+    app = create_app({"TESTING": True}, repository=FakeRepository())
+    client = app.test_client()
+
+    assert b"<service>library-classifier</service>" in client.get("/").data
+    assert b"<status>ok</status>" in client.get("/health").data

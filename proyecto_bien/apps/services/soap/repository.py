@@ -23,8 +23,9 @@ class ConceptNotFoundError(Exception):
 
 
 class LibraryRepository:
-    def __init__(self, db_config: dict[str, Any], pool=None, pool_settings: dict[str, Any] | None = None):
+    def __init__(self, db_config: dict[str, Any], pool=None, pool_settings: dict[str, Any] | None = None, schema: str = "library"):
         self.db_config = dict(db_config)
+        self.schema = schema
         self.pool = pool or self._create_pool(pool_settings)
         self._pool_opened = False
         self._pool_lock = threading.Lock()
@@ -74,17 +75,17 @@ class LibraryRepository:
             return cursor.fetchone() == (1,)
 
     def list_books(self, isbn: str | None = None) -> list[dict[str, Any]]:
-        query = """
+        query = f"""
             SELECT b.isbn, b.title,
                    COALESCE(string_agg(DISTINCT a.name, ', ' ORDER BY a.name), '') AS author,
                    b.publication_year, b.publisher, b.price, b.stock, b.description,
                    COALESCE(f.name, b.format_type) AS format,
                    COALESCE(string_agg(DISTINCT bi.image_url, ', ' ORDER BY bi.image_url), '') AS image_url
-              FROM library.books AS b
-              LEFT JOIN library.book_authors AS ba ON ba.isbn = b.isbn
-              LEFT JOIN library.authors AS a ON a.author_id = ba.author_id
-              LEFT JOIN library.formats AS f ON f.format_id = b.format_id
-              LEFT JOIN library.book_images AS bi ON bi.isbn = b.isbn
+              FROM {self.schema}.books AS b
+              LEFT JOIN {self.schema}.book_authors AS ba ON ba.isbn = b.isbn
+              LEFT JOIN {self.schema}.authors AS a ON a.author_id = ba.author_id
+              LEFT JOIN {self.schema}.formats AS f ON f.format_id = b.format_id
+              LEFT JOIN {self.schema}.book_images AS bi ON bi.isbn = b.isbn
         """
         params: tuple[Any, ...] = ()
         if isbn:
@@ -108,14 +109,14 @@ class LibraryRepository:
 
     def list_cloud_concepts(self) -> list[dict[str, Any]]:
         with self.transaction() as (_, cursor):
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT c.concept_id, c.name, bc.definition, b.isbn, b.title,
                        COALESCE(string_agg(DISTINCT g.name, ', ' ORDER BY g.name), '') AS categories
-                  FROM library.concepts AS c
-                  JOIN library.book_concepts AS bc ON bc.concept_id = c.concept_id
-                  JOIN library.books AS b ON b.isbn = bc.isbn
-                  LEFT JOIN library.book_genres AS bg ON bg.isbn = b.isbn
-                  LEFT JOIN library.genres AS g ON g.genre_id = bg.genre_id
+                  FROM {self.schema}.concepts AS c
+                  JOIN {self.schema}.book_concepts AS bc ON bc.concept_id = c.concept_id
+                  JOIN {self.schema}.books AS b ON b.isbn = bc.isbn
+                  LEFT JOIN {self.schema}.book_genres AS bg ON bg.isbn = b.isbn
+                  LEFT JOIN {self.schema}.genres AS g ON g.genre_id = bg.genre_id
                  GROUP BY c.concept_id, c.name, bc.definition, b.isbn, b.title
                  ORDER BY c.name, b.title
             """)
@@ -129,15 +130,15 @@ class LibraryRepository:
 
     def list_pending_concepts(self, client_type: str, client_id: str) -> list[dict[str, Any]]:
         with self.transaction() as (_, cursor):
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT bc.concept_id, bc.isbn, c.name, bc.definition, b.title,
                        COALESCE(string_agg(DISTINCT g.name, ', ' ORDER BY g.name), '') AS categories
-                  FROM library.book_concepts AS bc
-                  JOIN library.concepts AS c ON c.concept_id = bc.concept_id
-                  JOIN library.books AS b ON b.isbn = bc.isbn
-                  LEFT JOIN library.book_genres AS bg ON bg.isbn = b.isbn
-                  LEFT JOIN library.genres AS g ON g.genre_id = bg.genre_id
-                  LEFT JOIN library.clasificaciones_cloud AS cc
+                  FROM {self.schema}.book_concepts AS bc
+                  JOIN {self.schema}.concepts AS c ON c.concept_id = bc.concept_id
+                  JOIN {self.schema}.books AS b ON b.isbn = bc.isbn
+                  LEFT JOIN {self.schema}.book_genres AS bg ON bg.isbn = b.isbn
+                  LEFT JOIN {self.schema}.genres AS g ON g.genre_id = bg.genre_id
+                  LEFT JOIN {self.schema}.clasificaciones_cloud AS cc
                     ON cc.concept_id = bc.concept_id AND cc.isbn = bc.isbn
                  WHERE cc.classification_id IS NULL
                  GROUP BY bc.concept_id, bc.isbn, c.name, bc.definition, b.title
@@ -156,14 +157,14 @@ class LibraryRepository:
     def register_classification(self, data: dict[str, Any]) -> dict[str, Any]:
         with self.transaction() as (connection, cursor):
             cursor.execute(
-                "SELECT 1 FROM library.book_concepts WHERE concept_id = %s AND isbn = %s",
+                f"SELECT 1 FROM {self.schema}.book_concepts WHERE concept_id = %s AND isbn = %s",
                 (data["concept_id"], data["isbn"]),
             )
             if cursor.fetchone() is None:
                 raise ConceptNotFoundError()
 
-            cursor.execute("""
-                INSERT INTO library.clasificadores (nombre, apellidos, correo)
+            cursor.execute(f"""
+                INSERT INTO {self.schema}.clasificadores (nombre, apellidos, correo)
                 VALUES (%s, %s, %s)
                 ON CONFLICT (correo) DO UPDATE SET
                   nombre = EXCLUDED.nombre, apellidos = EXCLUDED.apellidos,
@@ -172,8 +173,8 @@ class LibraryRepository:
             """, (data["first_name"], data["last_name"], data["email"]))
             classifier_id = cursor.fetchone()[0]
             try:
-                cursor.execute("""
-                    INSERT INTO library.clasificaciones_cloud
+                cursor.execute(f"""
+                    INSERT INTO {self.schema}.clasificaciones_cloud
                       (concept_id, isbn, clasificador_id, modelo_cloud)
                     VALUES (%s, %s, %s, %s)
                     RETURNING classification_id, classified_at
@@ -188,12 +189,12 @@ class LibraryRepository:
 
     def get_user_progress(self, email: str, client_type: str, client_id: str) -> dict[str, Any]:
         with self.transaction() as (_, cursor):
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT COUNT(*) FILTER (WHERE cc.classification_id IS NOT NULL),
                        COUNT(*) FILTER (WHERE cc.classification_id IS NULL)
-                  FROM library.book_concepts AS bc
-                  LEFT JOIN library.clasificadores AS cl ON cl.correo = %s
-                  LEFT JOIN library.clasificaciones_cloud AS cc
+                  FROM {self.schema}.book_concepts AS bc
+                  LEFT JOIN {self.schema}.clasificadores AS cl ON cl.correo = %s
+                  LEFT JOIN {self.schema}.clasificaciones_cloud AS cc
                     ON cc.concept_id = bc.concept_id AND cc.isbn = bc.isbn
                    AND cc.clasificador_id = cl.clasificador_id
             """, (email,))
@@ -203,21 +204,20 @@ class LibraryRepository:
 
     def get_statistics(self, client_type: str, client_id: str) -> list[dict[str, Any]]:
         with self.transaction() as (_, cursor):
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT modelo_cloud, COUNT(*)
-                  FROM library.clasificaciones_cloud
+                  FROM {self.schema}.clasificaciones_cloud
                  GROUP BY modelo_cloud ORDER BY modelo_cloud
             """)
             result = [{"model": row[0], "count": row[1]} for row in cursor.fetchall()]
             self._record_client(cursor, client_type, client_id)
             return result
 
-    @staticmethod
-    def _record_client(cursor, client_type: str, client_id: str) -> None:
-        cursor.execute("""
-            INSERT INTO library.clientes_servidos (tipo_cliente, identificador, peticiones_atendidas)
+    def _record_client(self, cursor, client_type: str, client_id: str) -> None:
+        cursor.execute(f"""
+            INSERT INTO {self.schema}.clientes_servidos (tipo_cliente, identificador, peticiones_atendidas)
             VALUES (%s, %s, 1)
             ON CONFLICT (tipo_cliente, identificador) DO UPDATE SET
-              peticiones_atendidas = library.clientes_servidos.peticiones_atendidas + 1,
+              peticiones_atendidas = {self.schema}.clientes_servidos.peticiones_atendidas + 1,
               ultima_peticion = CURRENT_TIMESTAMP
         """, (client_type, client_id))

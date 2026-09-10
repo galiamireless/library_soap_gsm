@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -21,6 +22,7 @@ class Settings:
     debug: bool
     max_xml_bytes: int
     db_config: dict[str, object]
+    db_schema: str
     pool_min_size: int
     pool_max_size: int
     pool_timeout: float
@@ -28,6 +30,9 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
+        db_schema = os.getenv("DB_SCHEMA", "library").strip()
+        if not re.fullmatch(r"[a-z_][a-z0-9_]*", db_schema):
+            raise ValueError("DB_SCHEMA solo puede contener identificadores SQL simples.")
         return cls(
             host=os.getenv("HOST", "127.0.0.1"),
             port=int(os.getenv("PORT", "5001")),
@@ -42,6 +47,7 @@ class Settings:
                 "connect_timeout": int(os.getenv("DB_CONNECT_TIMEOUT", "5")),
                 "application_name": os.getenv("DB_APPLICATION_NAME", "library-classifier"),
             },
+            db_schema=db_schema,
             pool_min_size=int(os.getenv("DB_POOL_MIN_SIZE", "1")),
             pool_max_size=int(os.getenv("DB_POOL_MAX_SIZE", "10")),
             pool_timeout=float(os.getenv("DB_POOL_TIMEOUT", "5")),

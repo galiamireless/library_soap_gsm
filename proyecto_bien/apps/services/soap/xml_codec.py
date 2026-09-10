@@ -71,3 +71,14 @@ def serialize_message(message: str, **attributes: Any) -> bytes:
 
 def serialize_error(message: str, status: int) -> bytes:
     return serialize_message(message, status=status)
+
+
+def serialize_payload(payload: dict[str, Any] | list[Any], root_name: str = "response") -> bytes:
+    """Serialize simple HTTP payloads that are not catalog-specific."""
+    root = _document(root_name)
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            _element(root, key, value)
+    else:
+        _element(root, "items", payload)
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)

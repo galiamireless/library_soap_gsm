@@ -5,14 +5,21 @@ info:
   description: Rutas de consulta XML/JSON que acompañan al contrato SOAP.
 servers:
   - url: http://127.0.0.1:5001
+tags:
+  - name: Catálogo
+    description: Consultas de libros y conceptos
+  - name: Servicio
+    description: Estado, documentación y contrato SOAP
 paths:
   /health:
+    tags: [Servicio]
     get:
       summary: Comprueba el servicio y PostgreSQL
       responses:
         '200': {description: Disponible}
         '503': {description: PostgreSQL no disponible}
   /books:
+    tags: [Catálogo]
     get:
       summary: Lista libros
       parameters:
@@ -20,6 +27,7 @@ paths:
       responses:
         '200': {description: Catálogo en XML o JSON}
   /books/{isbn}:
+    tags: [Catálogo]
     get:
       summary: Obtiene un libro por ISBN
       parameters:
@@ -29,16 +37,37 @@ paths:
         '200': {description: Libro encontrado}
         '404': {description: Libro no encontrado}
   /books/minimal:
+    tags: [Catálogo]
     get:
       summary: Lista ISBN, título, autor e imagen
       responses:
         '200': {description: Resumen del catálogo}
   /books/concepts:
+    tags: [Catálogo]
     get:
       summary: Lista conceptos Cloud y libros relacionados
       responses:
         '200': {description: Conceptos del catálogo}
+  /docs:
+    tags: [Servicio]
+    get:
+      summary: Interfaz web de Swagger UI
+      responses:
+        '200': {description: Documentación interactiva}
+  /openapi.yaml:
+    tags: [Servicio]
+    get:
+      summary: Especificación OpenAPI
+      responses:
+        '200': {description: Documento OpenAPI en YAML}
+  /library-classifier.wsdl:
+    tags: [Servicio]
+    get:
+      summary: Contrato WSDL del servicio SOAP
+      responses:
+        '200': {description: WSDL}
   /soap:
+    tags: [Servicio]
     post:
       summary: Contrato SOAP document/literal
       requestBody:
