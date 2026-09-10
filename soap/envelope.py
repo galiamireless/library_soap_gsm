@@ -22,9 +22,12 @@ def parse_request(xml_bytes: bytes) -> tuple[str, ET.Element, ET.Element]:
     body = root.find(f"{{{SOAP_NS}}}Body")
     if body is None:
         raise ValueError("El SOAP Envelope no contiene Body.")
-    operation = next(iter(body), None)
-    if operation is None:
+    operations = list(body)
+    if len(operations) != 1:
         raise ValueError("El SOAP Body no contiene una operación.")
+    operation = operations[0]
+    if not operation.tag.startswith(f"{{{SERVICE_NS}}}"):
+        raise ValueError("La operación SOAP no pertenece al namespace del servicio.")
     return operation.tag.rsplit("}", 1)[-1], header if header is not None else ET.Element("Header"), operation
 
 

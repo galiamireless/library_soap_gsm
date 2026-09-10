@@ -8,7 +8,11 @@ NS = "urn:udem:library:classifier"
 
 
 def request_envelope(operation: str, fields: dict[str, str], header: str = "") -> bytes:
-    body = "".join(f"<{key}>{escape(value)}</{key}>" for key, value in fields.items())
+    # The XSD uses elementFormDefault="qualified": operation fields must use
+    # the service namespace as well as the operation itself.
+    body = "".join(
+        f"<tns:{key}>{escape(value)}</tns:{key}>" for key, value in fields.items()
+    )
     return (f'<?xml version="1.0" encoding="UTF-8"?><soap:Envelope xmlns:soap="{SOAP_NS}" xmlns:tns="{NS}">'
             f"<soap:Header>{header}</soap:Header><soap:Body><tns:{operation}>{body}</tns:{operation}></soap:Body></soap:Envelope>").encode()
 

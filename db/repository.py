@@ -1,4 +1,5 @@
 import logging
+import threading
 from contextlib import contextmanager
 from typing import Any
 
@@ -17,15 +18,51 @@ class ConceptNotFoundError(Exception):
 
 
 class DatabaseRepository:
-    def __init__(self, config: dict, connection_factory=None):
-        self.config = config
+    def __init__(self, config: dict, connection_factory=None, pool=None, pool_settings=None):
+        self.config = dict(config)
         self.connection_factory = connection_factory or psycopg.connect
+        self.pool = pool or self._build_pool(pool_settings)
+        self._pool_opened = False
+        self._pool_lock = threading.Lock()
+
+    def _build_pool(self, pool_settings):
+        """Build a lazy pool so importing the app never blocks on PostgreSQL."""
+        if pool_settings is None or self.connection_factory is not psycopg.connect:
+            return None
+        try:
+            from psycopg_pool import ConnectionPool
+        except ImportError:
+            LOGGER.warning("psycopg_pool no está instalado; se usará conexión por operación")
+            return None
+        return ConnectionPool(
+            conninfo="",
+            kwargs=self.config,
+            open=False,
+            min_size=pool_settings["min_size"],
+            max_size=pool_settings["max_size"],
+            timeout=pool_settings["timeout"],
+        )
 
     @contextmanager
     def transaction(self):
+        if self.pool is not None:
+            with self._pool_lock:
+                if not self._pool_opened:
+                    self.pool.open(wait=False)
+                    self._pool_opened = True
+            with self.pool.connection() as connection:
+                with connection.cursor() as cursor:
+                    yield connection, cursor
+            return
         with self.connection_factory(**self.config) as connection:
             with connection.cursor() as cursor:
                 yield connection, cursor
+
+    def close(self) -> None:
+        with self._pool_lock:
+            if self.pool is not None and self._pool_opened:
+                self.pool.close()
+                self._pool_opened = False
 
     def list_pending_concepts(self, client_type: str, client_id: str) -> list[dict[str, Any]]:
         with self.transaction() as (_, cursor):

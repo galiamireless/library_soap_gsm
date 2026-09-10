@@ -35,6 +35,13 @@ $env:PYTHONPATH='.'
 python app.py
 ```
 
+La aplicación se construye mediante `create_app()`. `app.py` solo conserva el
+punto de entrada compatible con `python app.py`; la configuración se lee al
+crear la aplicación, no al importar cada módulo. PostgreSQL usa un pool lazy:
+no intenta conectarse durante el arranque, reutiliza conexiones entre
+peticiones y limita tanto el tiempo de conexión como la espera por una
+conexión disponible.
+
 - WSDL: `http://127.0.0.1:5000/library-classifier.wsdl`
 - SOAP endpoint: `http://127.0.0.1:5000/soap`
 - Health: `http://127.0.0.1:5000/health`
@@ -71,4 +78,12 @@ El archivo Java incluido muestra el consumo desde otro lenguaje; la comparacion 
 
 ## Estructura
 
-`app.py` publica Flask; `config/` carga ambiente; `db/` concentra SQL parametrizado y transacciones; `soap/` procesa XML, faults y seguridad; `wsdl/` contiene contrato; `sql/` contiene tablas propias; `clients/` contiene GUI, cliente manual y cliente Java; `tests/` contiene pruebas; `docs/` y `report/` contienen evidencia y reporte.
+`app.py` es el entrypoint; `api/` contiene la fábrica Flask, rutas HTTP y
+serialización; `config/` carga ambiente; `db/` concentra SQL parametrizado,
+transacciones y pool; `soap/` procesa XML, faults y seguridad; `wsdl/` contiene
+el contrato; `sql/` contiene tablas propias; `clients/` contiene GUI, cliente
+manual y cliente Java; `tests/` contiene pruebas; `docs/` y `report/` contienen
+evidencia y reporte.
+
+Las variables opcionales de rendimiento son `DB_CONNECT_TIMEOUT`,
+`DB_POOL_MIN_SIZE`, `DB_POOL_MAX_SIZE`, `DB_POOL_TIMEOUT` y `MAX_XML_BYTES`.

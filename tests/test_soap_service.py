@@ -1,5 +1,6 @@
 from xml.etree import ElementTree as ET
 
+from clients.desktop_client import request_envelope
 from soap.service import SoapService
 
 SOAP = "http://schemas.xmlsoap.org/soap/envelope/"
@@ -50,3 +51,11 @@ def test_stats_requires_security():
     xml, status = SoapService(FakeRepository()).handle(request("ObtenerEstadisticasPorModelo", {"clientType": "test", "clientId": "1"}))
     assert status == 401
     assert b"Autenticaci" in xml
+
+
+def test_desktop_client_qualifies_soap_fields():
+    xml = request_envelope(
+        "ObtenerConceptosPendientes", {"clientType": "desktop", "clientId": "1"}
+    )
+    assert b"<tns:clientType>desktop</tns:clientType>" in xml
+    assert b"<tns:clientId>1</tns:clientId>" in xml
