@@ -1,0 +1,52 @@
+openapi: 3.0.3
+info:
+  title: Library Classifier Catalog API
+  version: 1.0.0
+  description: Rutas de consulta XML/JSON que acompañan al contrato SOAP.
+servers:
+  - url: http://127.0.0.1:5001
+paths:
+  /health:
+    get:
+      summary: Comprueba el servicio y PostgreSQL
+      responses:
+        '200': {description: Disponible}
+        '503': {description: PostgreSQL no disponible}
+  /books:
+    get:
+      summary: Lista libros
+      parameters:
+        - {name: format, in: query, schema: {type: string, enum: [xml, json], default: xml}}
+      responses:
+        '200': {description: Catálogo en XML o JSON}
+  /books/{isbn}:
+    get:
+      summary: Obtiene un libro por ISBN
+      parameters:
+        - {name: isbn, in: path, required: true, schema: {type: string}}
+        - {name: format, in: query, schema: {type: string, enum: [xml, json], default: xml}}
+      responses:
+        '200': {description: Libro encontrado}
+        '404': {description: Libro no encontrado}
+  /books/minimal:
+    get:
+      summary: Lista ISBN, título, autor e imagen
+      responses:
+        '200': {description: Resumen del catálogo}
+  /books/concepts:
+    get:
+      summary: Lista conceptos Cloud y libros relacionados
+      responses:
+        '200': {description: Conceptos del catálogo}
+  /soap:
+    post:
+      summary: Contrato SOAP document/literal
+      requestBody:
+        required: true
+        content:
+          text/xml: {schema: {type: string}}
+      responses:
+        '200': {description: SOAP response}
+        '400': {description: SOAP Fault de cliente}
+        '401': {description: Fault de autenticación}
+        '409': {description: Clasificación duplicada}

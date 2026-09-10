@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<library>
+  <book isbn="9786070001002">
+    <title>Contratos XML e interoperabilidad</title>
+    <authors><author>Mateo Salas</author></authors>
+    <publicationYear>2026</publicationYear>
+    <genres><genre>Tecnología</genre><genre>Educación</genre></genres>
+    <price currency="MXN">299.50</price>
+    <availability><stock>12</stock></availability>
+    <format>Digital</format>
+    <images><image>https://images.example.test/xml.png</image></images>
+    <concepts><concept><term>SaaS</term><definition>Software consumido como servicio.</definition></concept></concepts>
+  </book>
+</library>

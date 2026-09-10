@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="urn:udem:library:classifier" xmlns:xsd="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:udem:library:classifier" name="LibraryClassifier">
+  <types><xsd:schema targetNamespace="urn:udem:library:classifier"><xsd:import namespace="urn:udem:library:classifier" schemaLocation="library-classifier.xsd"/></xsd:schema></types>
+  <message name="ObtenerConceptosPendientesRequest"><part name="parameters" element="tns:ObtenerConceptosPendientes"/></message>
+  <message name="ObtenerConceptosPendientesResponse"><part name="parameters" element="tns:ObtenerConceptosPendientesResponse"/></message>
+  <message name="RegistrarClasificacionRequest"><part name="parameters" element="tns:RegistrarClasificacion"/></message>
+  <message name="RegistrarClasificacionResponse"><part name="parameters" element="tns:RegistrarClasificacionResponse"/></message>
+  <message name="ObtenerProgresoUsuarioRequest"><part name="parameters" element="tns:ObtenerProgresoUsuario"/></message>
+  <message name="ObtenerProgresoUsuarioResponse"><part name="parameters" element="tns:ObtenerProgresoUsuarioResponse"/></message>
+  <message name="ObtenerEstadisticasPorModeloRequest"><part name="parameters" element="tns:ObtenerEstadisticasPorModelo"/></message>
+  <message name="ObtenerEstadisticasPorModeloResponse"><part name="parameters" element="tns:ObtenerEstadisticasPorModeloResponse"/></message>
+  <portType name="LibraryClassifierPortType">
+    <operation name="ObtenerConceptosPendientes"><input message="tns:ObtenerConceptosPendientesRequest"/><output message="tns:ObtenerConceptosPendientesResponse"/></operation>
+    <operation name="RegistrarClasificacion"><input message="tns:RegistrarClasificacionRequest"/><output message="tns:RegistrarClasificacionResponse"/></operation>
+    <operation name="ObtenerProgresoUsuario"><input message="tns:ObtenerProgresoUsuarioRequest"/><output message="tns:ObtenerProgresoUsuarioResponse"/></operation>
+    <operation name="ObtenerEstadisticasPorModelo"><input message="tns:ObtenerEstadisticasPorModeloRequest"/><output message="tns:ObtenerEstadisticasPorModeloResponse"/></operation>
+  </portType>
+  <binding name="LibraryClassifierBinding" type="tns:LibraryClassifierPortType"><soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/></binding>
+  <service name="LibraryClassifierService"><port name="LibraryClassifierPort" binding="tns:LibraryClassifierBinding"><soap:address location="http://localhost:5001/soap"/></port></service>
+</definitions>

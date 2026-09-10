@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<library>
+  <book isbn="9786070001001">
+    <title>Sistemas distribuidos para equipos pequeños</title>
+    <authors><author>Lucía Herrera</author></authors>
+    <publicationYear>2025</publicationYear>
+    <genres><genre>Tecnología</genre><genre>Arquitectura</genre></genres>
+    <price currency="MXN">385.00</price>
+    <availability><stock>7</stock></availability>
+    <format>Impreso</format>
+    <images><image>https://images.example.test/distribuidos.png</image></images>
+    <concepts><concept><term>IaaS</term><definition>Infraestructura disponible como servicio.</definition></concept></concepts>
+  </book>
+</library>
