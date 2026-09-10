@@ -124,6 +124,56 @@ class DatabaseRepository:
             self._record_client(cursor, client_type, client_id)
             return result
 
+    def list_books(self, isbn: str | None = None) -> list[dict[str, Any]]:
+        query = """
+            SELECT b.isbn, b.title,
+                   COALESCE(string_agg(DISTINCT a.name, ', ' ORDER BY a.name), '') AS author,
+                   b.publisher, b.publication_year, b.price, b.stock, b.description,
+                   COALESCE(f.name, b.format_type) AS format,
+                   COALESCE(string_agg(DISTINCT bi.image_url, ', ' ORDER BY bi.image_url), '') AS image_url
+            FROM books b
+            LEFT JOIN book_authors ba ON ba.isbn = b.isbn
+            LEFT JOIN authors a ON a.author_id = ba.author_id
+            LEFT JOIN formats f ON f.format_id = b.format_id
+            LEFT JOIN book_images bi ON bi.isbn = b.isbn
+        """
+        parameters = ()
+        if isbn:
+            query += " WHERE b.isbn = %s"
+            parameters = (isbn,)
+        query += " GROUP BY b.isbn, b.title, b.publisher, b.publication_year, b.price, b.stock, b.description, f.name, b.format_type ORDER BY b.title"
+        with self.transaction() as (_, cursor):
+            cursor.execute(query, parameters)
+            columns = ("isbn", "title", "author", "publisher", "publicationYear", "price",
+                       "stock", "description", "format", "imageUrl")
+            return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+    def list_cloud_concepts(self) -> list[dict[str, Any]]:
+        with self.transaction() as (_, cursor):
+            cursor.execute(
+                """
+                SELECT c.concept_id, c.name, bc.definition, b.isbn, b.title,
+                       COALESCE(string_agg(DISTINCT g.name, ', ' ORDER BY g.name), '') AS categories
+                FROM concepts c
+                JOIN book_concepts bc ON bc.concept_id = c.concept_id
+                JOIN books b ON b.isbn = bc.isbn
+                LEFT JOIN book_genres bg ON bg.isbn = b.isbn
+                LEFT JOIN genres g ON g.genre_id = bg.genre_id
+                GROUP BY c.concept_id, c.name, bc.definition, b.isbn, b.title
+                ORDER BY c.name, b.title
+                """
+            )
+            return [
+                {"conceptId": row[0], "concept": row[1], "definition": row[2],
+                 "isbn": row[3], "title": row[4], "categories": row[5]}
+                for row in cursor.fetchall()
+            ]
+
+    def check_health(self) -> bool:
+        with self.transaction() as (_, cursor):
+            cursor.execute("SELECT 1")
+            return cursor.fetchone() == (1,)
+
     @staticmethod
     def _record_client(cursor, client_type: str, client_id: str) -> None:
         cursor.execute(
