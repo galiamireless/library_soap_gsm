@@ -57,6 +57,24 @@ def serialize(data, status: int = 200):
     return Response(ET.tostring(root, encoding="unicode"), status=status, mimetype="application/xml")
 
 
+@app.get("/")
+def index():
+    return serialize({
+        "service": "library-classifier-soap",
+        "status": "running",
+        "endpoints": [
+            "/health",
+            "/books",
+            "/books/<isbn>",
+            "/books/minimal",
+            "/cloud-concepts",
+            "/soap",
+            "/library-classifier.wsdl",
+        ],
+        "jsonExample": "/books?format=json",
+    })
+
+
 @app.get("/health")
 def health():
     try:
