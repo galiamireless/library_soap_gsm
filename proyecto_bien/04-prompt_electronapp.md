@@ -1,0 +1,6 @@
+1.- Crea una aplicacion de escritorio basada en Electron que consuma el siguiente servicio http://....:5001/books exclusivamente en XML.
+2.- La aplicaicon en Electron debe mostrar los libros disponibles en el XML con foto, titulo del lubro, autores, isbn, precio y lo que ya actualmente muestra. Utiliza cards y colores y GUI con material y diseno responsivo. Muestra 6 cards al arrancar la aplicacion de escritorio e implementa paginacion.
+3.- Dentro de la GUI de la aplicacion Electron, incorpora un boton que permita mostrar un popup donde se pida la IP del microservicio y el endpoin que L guarde esta configuracion, y persista mediante LocalStorage.
+4.-Deposita la aplicacion en /library_soap_gsm/proyecto_bien/apps/Electron-app y crea un README.md en donde se incluya todos los pasos para instalar electron en mi maquina local (windows 11) y ejecutar la aplicacion.
+
+AL FINAL AGREGA al final de README.MD DE LIBRARY_SOAP_GSM/PROYECTO_BIEN COMO ACTUALIZAR LOS DATOS ASI COMO CORRER EN CMD WINDOWS

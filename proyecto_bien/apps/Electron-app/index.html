@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Library Catalog</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <h1>Catálogo de Libros</h1>
+          <div class="subtitle">Datos desde XML del microservicio de biblioteca</div>
+        </div>
+
+        <div class="actions">
+          <span id="statusBadge" class="status-pill">Conectando…</span>
+          <button id="settingsBtn" class="primary-btn" type="button">Configurar servicio</button>
+        </div>
+      </header>
+
+      <div class="toolbar">
+        <div id="serviceUrlLabel" class="url-tag">http://127.0.0.1:5001/books</div>
+      </div>
+
+      <main>
+        <section id="booksGrid" class="grid" aria-live="polite"></section>
+        <nav id="pagination" class="pagination" aria-label="Paginación"></nav>
+      </main>
+    </div>
+
+    <div id="settingsModal" class="modal-backdrop" aria-hidden="true">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <h2 id="modalTitle">Configuración del microservicio</h2>
+
+        <div class="field">
+          <label for="hostInput">IP / host</label>
+          <input id="hostInput" type="text" placeholder="http://127.0.0.1:5001" />
+        </div>
+
+        <div class="field">
+          <label for="endpointInput">Endpoint</label>
+          <input id="endpointInput" type="text" placeholder="/books" />
+        </div>
+
+        <div class="modal-actions">
+          <button id="closeModalBtn" class="secondary-btn" type="button">Cancelar</button>
+          <button id="saveSettingsBtn" class="primary-btn" type="button">Guardar</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const PAGE_SIZE = 6;
+      const STORAGE_KEY = 'libraryServiceSettings';
+      const defaultSettings = {
+        host: 'http://127.0.0.1:5001',
+        endpoint: '/books',
+      };
+
+      let allBooks = [];
+      let currentPage = 1;
+
+      const grid = document.getElementById('booksGrid');
+      const pagination = document.getElementById('pagination');
+      const statusBadge = document.getElementById('statusBadge');
+      const serviceUrlLabel = document.getElementById('serviceUrlLabel');
+      const settingsBtn = document.getElementById('settingsBtn');
+      const modal = document.getElementById('settingsModal');
+      const hostInput = document.getElementById('hostInput');
+      const endpointInput = document.getElementById('endpointInput');
+      const closeModalBtn = document.getElementById('closeModalBtn');
+      const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+
+      function getSettings() {
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (!saved) return { ...defaultSettings };
+          const parsed = JSON.parse(saved);
+          return {
+            host: parsed.host || defaultSettings.host,
+            endpoint: parsed.endpoint || defaultSettings.endpoint,
+          };
+        } catch (error) {
+          return { ...defaultSettings };
+        }
+      }
+
+      function saveSettings(settings) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+      }
+
+      function getServiceUrl() {
+        const { host, endpoint } = getSettings();
+        const cleanedHost = host.replace(/\/+$/, '');
+        const cleanedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+        return `${cleanedHost}${cleanedEndpoint}`;
+      }
+
+      function updateStatus(label, isOk = false) {
+        statusBadge.textContent = label;
+        statusBadge.style.background = isOk ? 'rgba(74, 222, 128, 0.13)' : 'rgba(248, 113, 113, 0.12)';
+        statusBadge.style.borderColor = isOk ? 'rgba(74, 222, 128, 0.35)' : 'rgba(248, 113, 113, 0.35)';
+        statusBadge.style.color = isOk ? '#86efac' : '#fca5a5';
+      }
+
+      function normalizeText(value) {
+        if (value === null || value === undefined) return '';
+        return String(value).trim();
+      }
+
+      function parseBookItem(bookNode) {
+        const getField = (...names) => {
+          for (const name of names) {
+            const element = bookNode.querySelector(name);
+            if (element && element.textContent) return normalizeText(element.textContent);
+          }
+          return '';
+        };
+
+        const title = getField('title');
+        const author = getField('author', 'authors', 'authorName');
+        const isbn = getField('isbn');
+        const price = getField('price');
+        const stock = getField('stock');
+        const publisher = getField('publisher');
+        const description = getField('description');
+        const imageUrl = getField('imageUrl', 'image_url', 'imagen');
+        const publicationYear = getField('publicationYear', 'publication_year');
+        const format = getField('format');
+
+        return {
+          title: title || 'Sin título',
+          author: author || 'Autor no disponible',
+          isbn: isbn || 'N/A',
+          price: price || '0.00',
+          stock: stock || '0',
+          publisher: publisher || 'Editorial sin datos',
+          description: description || 'Sin descripción disponible para este título.',
+          imageUrl: imageUrl || 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80',
+          publicationYear: publicationYear || 'N/D',
+          format: format || 'Formato no definido',
+        };
+      }
+
+      function parseXmlBooks(xmlText) {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
+        const parserError = xmlDoc.querySelector('parsererror');
+
+        if (parserError) {
+          throw new Error('La respuesta del servicio no es un XML válido.');
+        }
+
+        const rows = [...xmlDoc.querySelectorAll('book')];
+        return rows.map(parseBookItem);
+      }
+
+      async function fetchBooks() {
+        const url = getServiceUrl();
+        const response = await fetch(url, {
+          headers: {
+            Accept: 'application/xml, text/xml, */*',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`No se pudo obtener el catálogo desde ${url}. Código ${response.status}.`);
+        }
+
+        const xmlText = await response.text();
+        return parseXmlBooks(xmlText);
+      }
+
+      function renderPagination(totalPages) {
+        pagination.innerHTML = '';
+
+        const prevButton = document.createElement('button');
+        prevButton.type = 'button';
+        prevButton.className = 'pagination-btn';
+        prevButton.disabled = currentPage === 1;
+        prevButton.textContent = 'Anterior';
+        prevButton.onclick = () => {
+          if (currentPage > 1) {
+            currentPage -= 1;
+            renderPage();
+          }
+        };
+        pagination.appendChild(prevButton);
+
+        for (let page = 1; page <= totalPages; page += 1) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = `pagination-btn ${page === currentPage ? 'active' : ''}`;
+          button.textContent = String(page);
+          button.onclick = () => {
+            currentPage = page;
+            renderPage();
+          };
+          pagination.appendChild(button);
+        }
+
+        const nextButton = document.createElement('button');
+        nextButton.type = 'button';
+        nextButton.className = 'pagination-btn';
+        nextButton.disabled = currentPage === totalPages || totalPages === 0;
+        nextButton.textContent = 'Siguiente';
+        nextButton.onclick = () => {
+          if (currentPage < totalPages) {
+            currentPage += 1;
+            renderPage();
+          }
+        };
+        pagination.appendChild(nextButton);
+      }
+
+      function renderPage() {
+        const totalPages = Math.max(1, Math.ceil(allBooks.length / PAGE_SIZE));
+        if (currentPage > totalPages) {
+          currentPage = totalPages;
+        }
+
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const end = start + PAGE_SIZE;
+        const pageBooks = allBooks.slice(start, end);
+
+        if (!pageBooks.length) {
+          grid.innerHTML = '<div class="empty-state">No hay libros disponibles para mostrar.</div>';
+          renderPagination(0);
+          return;
+        }
+
+        grid.innerHTML = pageBooks.map((book) => `
+          <article class="card">
+            <div class="card-image" style="background-image: url('${book.imageUrl}');"></div>
+            <div class="card-body">
+              <h2 class="book-title">${book.title}</h2>
+              <div class="meta"><strong>Autor:</strong> ${book.author}</div>
+              <div class="meta"><strong>ISBN:</strong> ${book.isbn}</div>
+              <div class="meta"><strong>Editorial:</strong> ${book.publisher}</div>
+              <div class="meta"><strong>Formato:</strong> ${book.format}</div>
+              <div class="meta"><strong>Año:</strong> ${book.publicationYear}</div>
+              <p class="book-description">${book.description}</p>
+              <div class="card-footer">
+                <span class="price">$ ${Number(book.price || 0).toFixed(2)}</span>
+                <span class="stock">Stock: ${book.stock}</span>
+              </div>
+            </div>
+          </article>
+        `).join('');
+
+        renderPagination(totalPages);
+      }
+
+      function populateSettingsForm() {
+        const { host, endpoint } = getSettings();
+        hostInput.value = host;
+        endpointInput.value = endpoint;
+      }
+
+      function openModal() {
+        populateSettingsForm();
+        modal.classList.add('visible');
+        modal.setAttribute('aria-hidden', 'false');
+      }
+
+      function closeModal() {
+        modal.classList.remove('visible');
+        modal.setAttribute('aria-hidden', 'true');
+      }
+
+      function refreshServiceUrl() {
+        const settings = getSettings();
+        const url = `${settings.host.replace(/\/+$/, '')}${settings.endpoint.startsWith('/') ? settings.endpoint : `/${settings.endpoint}`}`;
+        serviceUrlLabel.textContent = url;
+      }
+
+      async function loadBooks() {
+        try {
+          updateStatus('Cargando…', true);
+          const books = await fetchBooks();
+          allBooks = books;
+          currentPage = 1;
+          renderPage();
+          updateStatus('Conectado', true);
+        } catch (error) {
+          allBooks = [];
+          grid.innerHTML = `<div class="empty-state">${error.message}</div>`;
+          pagination.innerHTML = '';
+          updateStatus('Sin conexión', false);
+        }
+      }
+
+      settingsBtn.addEventListener('click', openModal);
+      closeModalBtn.addEventListener('click', closeModal);
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) closeModal();
+      });
+
+      saveSettingsBtn.addEventListener('click', () => {
+        const nextSettings = {
+          host: hostInput.value.trim() || defaultSettings.host,
+          endpoint: endpointInput.value.trim() || defaultSettings.endpoint,
+        };
+
+        saveSettings(nextSettings);
+        refreshServiceUrl();
+        closeModal();
+        loadBooks();
+      });
+
+      refreshServiceUrl();
+      loadBooks();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "name": "library-electron-app",
+  "version": "1.0.0",
+  "description": "Electron desktop app for the XML library service",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron ."
+  },
+  "keywords": [
+    "electron",
+    "xml",
+    "library",
+    "desktop"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.2"
+  }
+}
