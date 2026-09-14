@@ -157,3 +157,143 @@ npm start
 5. La app mostrará los datos actualizados desde el backend XML.
 
 > Nota: si el servicio cambia de IP o puerto, solo tienes que actualizar el valor desde la configuracion interna de la app o desde `LocalStorage`.
+
+---
+
+## Solución final si aparece `Sin conexión` o `Failed to connect`
+
+Este error no viene de Electron, sino de que la app desktop intenta consultar el backend y el servicio no está respondiendo en `http://127.0.0.1:5001/books`.
+
+### Paso 1: levantar el backend del proyecto
+
+Abre una terminal en CMD o PowerShell y ejecuta esto:
+
+```cmd
+cd "C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien"
+.venv\Scripts\activate
+python app.py
+```
+
+Si no aparece ningún error, el backend se está levantando en:
+
+```text
+http://127.0.0.1:5001
+```
+
+### Paso 2: verificar que el servicio responde
+
+En otra terminal ejecuta:
+
+```powershell
+Invoke-WebRequest http://127.0.0.1:5001/books
+```
+
+O bien:
+
+```cmd
+curl http://127.0.0.1:5001/books
+```
+
+Si recibes XML (no un error de conexión), entonces el backend está bien.
+
+### Paso 3: si falla por PostgreSQL o base de datos
+
+El servicio necesita PostgreSQL activo porque el proyecto usa la base `library_classifier_db` configurada en `.env`.
+
+Revisa esto:
+
+- `.env` tiene el host, puerto, usuario y contraseña correctos.
+- PostgreSQL está iniciado en Windows.
+- El puerto configurado es el correcto (`5433` según el proyecto).
+- La base de datos existe.
+
+Si la base de datos aún no está creada, hay que ejecutarlos scripts SQL del proyecto:
+
+```cmd
+cd "C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien"
+```
+
+Luego crea la base y ejecuta los scripts indicados en:
+
+- `database/README.md`
+- `data/library_schema.sql`
+- `database/library_seed.sql`
+
+### Paso 4: volver a configurar la app Electron
+
+Cuando el backend ya esté funcionando:
+
+1. Abre la app Electron.
+2. Haz clic en `Configurar servicio`.
+3. Escribe:
+   - IP / host: `http://127.0.0.1:5001`
+   - Endpoint: `/books`
+4. Guarda.
+
+### Paso 5: reiniciar la app
+
+Después de guardar, cierra y vuelve a abrir la aplicación:
+
+```cmd
+cd "C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien\apps\Electron-app"
+npm start
+```
+
+---
+
+## ✅ Orden correcto para no fallar
+
+1. Activar venv
+2. Instalar `psycopg[binary,pool]`
+3. Verificar PostgreSQL client/libpq
+4. Arrancar backend
+5. Probar `http://127.0.0.1:5001/books`
+6. Arrancar Electron
+
+Ejecuta esto en orden:
+
+```cmd
+cd "C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien"
+.venv\Scripts\activate
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install --upgrade --force-reinstall "psycopg[binary,pool]"
+```
+
+Verifica que el cliente PostgreSQL/libpq esté disponible en Windows:
+
+```cmd
+where libpq.dll
+```
+
+Si aparece una ruta, el cliente está disponible. Si no aparece nada, instala PostgreSQL y vuelve a probar.
+
+Ahora levanta el backend desde la carpeta correcta:
+
+```cmd
+cd "C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien"
+.venv\Scripts\activate
+python -m apps.services.soap.app
+```
+
+O, si prefieres arrancarlo desde el servicio:
+
+```cmd
+cd "C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien\apps\services\soap"
+.venv\Scripts\activate
+python app.py
+```
+
+Comprueba que responde XML:
+
+```powershell
+Invoke-WebRequest http://127.0.0.1:5001/books
+```
+
+Si recibes XML, ya puedes abrir Electron:
+
+```cmd
+cd "C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien\apps\Electron-app"
+npm start
+```
+
+> Si aun así sigue apareciendo `Sin conexión`, entonces la falla está en el backend o en la base de datos, no en la interfaz Electron.
