@@ -59,6 +59,11 @@
         endpoint: '/books',
       };
 
+      const bookImageUrls = {
+        '9786070001001': 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=800&q=85',
+        '9786070001002': 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=85',
+      };
+
       let allBooks = [];
       let currentPage = 1;
 
@@ -110,6 +115,10 @@
         return String(value).trim();
       }
 
+      function getBookImageUrl(book) {
+        return bookImageUrls[book.isbn] || book.imageUrl || 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=85';
+      }
+
       function parseBookItem(bookNode) {
         const getField = (...names) => {
           for (const name of names) {
@@ -138,7 +147,7 @@
           stock: stock || '0',
           publisher: publisher || 'Editorial sin datos',
           description: description || 'Sin descripción disponible para este título.',
-          imageUrl: imageUrl || 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80',
+          imageUrl,
           publicationYear: publicationYear || 'N/D',
           format: format || 'Formato no definido',
         };
@@ -233,7 +242,12 @@
 
         grid.innerHTML = pageBooks.map((book) => `
           <article class="card">
-            <div class="card-image" style="background-image: url('${book.imageUrl}');"></div>
+            <img
+              class="card-image"
+              src="${getBookImageUrl(book)}"
+              alt="Portada de ${book.title}"
+              onerror="this.onerror=null;this.src='https://placehold.co/800x500/1f2937/e5eefb?text=Portada+no+disponible';"
+            />
             <div class="card-body">
               <h2 class="book-title">${book.title}</h2>
               <div class="meta"><strong>Autor:</strong> ${book.author}</div>
