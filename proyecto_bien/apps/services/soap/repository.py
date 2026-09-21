@@ -104,6 +104,32 @@ class LibraryRepository:
             )
             return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
+    def create_book(self, data: dict[str, Any]) -> dict[str, Any]:
+        with self.transaction() as (connection, cursor):
+            cursor.execute(f"""
+                INSERT INTO {self.schema}.books
+                  (isbn, title, publisher, publication_year, price, stock, description, format_type)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING isbn, title, publisher, publication_year, price, stock, description, format_type
+            """, (
+                data["isbn"], data["title"], data.get("publisher"), data.get("publicationYear"),
+                data.get("price"), data.get("stock", 0), data.get("description"), data.get("format"),
+            ))
+            row = cursor.fetchone()
+            if data.get("author"):
+                cursor.execute(f"""
+                    INSERT INTO {self.schema}.authors (name) VALUES (%s)
+                    ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+                    RETURNING author_id
+                """, (data["author"],))
+                author_id = cursor.fetchone()[0]
+                cursor.execute(f"""
+                    INSERT INTO {self.schema}.book_authors (isbn, author_id)
+                    VALUES (%s, %s) ON CONFLICT DO NOTHING
+                """, (data["isbn"], author_id))
+            connection.commit()
+            return dict(zip(("isbn", "title", "publisher", "publicationYear", "price", "stock", "description", "format"), row))
+
     def list_minimal_books(self) -> list[dict[str, Any]]:
         return self.list_books()
 

@@ -1,0 +1,92 @@
+openapi: 3.0.3
+info:
+  title: Library Login API
+  version: 1.0.0
+  description: Microservicio de usuarios, verificacion por correo y sesiones. XML es el formato predeterminado.
+servers:
+  - url: http://127.0.0.1:5000
+parameters:
+  format:
+    name: format
+    in: query
+    schema: {type: string, enum: [xml, json], default: xml}
+    description: Formato de respuesta.
+paths:
+  /register:
+    post:
+      summary: Registra un usuario y envia un enlace de verificacion
+      parameters: [{$ref: '#/components/parameters/format'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RegisterRequest'}
+          application/x-www-form-urlencoded:
+            schema: {$ref: '#/components/schemas/RegisterRequest'}
+      responses:
+        '201': {description: Usuario creado; requiere verificacion de correo}
+        '400': {description: Datos invalidos}
+        '409': {description: Correo duplicado}
+  /verify-email:
+    get:
+      summary: Confirma el correo con el token enviado por Postfix
+      parameters:
+        - {name: token, in: query, required: true, schema: {type: string}}
+        - {$ref: '#/components/parameters/format'}
+      responses:
+        '200': {description: Correo verificado}
+        '400': {description: Token invalido o expirado}
+  /login:
+    post:
+      summary: Autentica al usuario y crea una sesion
+      parameters: [{$ref: '#/components/parameters/format'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LoginRequest'}
+      responses:
+        '200': {description: Sesion iniciada}
+        '401': {description: Credenciales invalidas}
+        '403': {description: Correo sin verificar}
+  /logout:
+    post:
+      summary: Cierra la sesion actual
+      parameters: [{$ref: '#/components/parameters/format'}]
+      responses: {'200': {description: Sesion cerrada}}
+  /session:
+    get:
+      summary: Consulta la sesion autenticada
+      parameters: [{$ref: '#/components/parameters/format'}]
+      responses:
+        '200': {description: Sesion activa}
+        '401': {description: Sin sesion}
+  /health:
+    get:
+      summary: Verifica Flask y PostgreSQL
+      parameters: [{$ref: '#/components/parameters/format'}]
+      responses:
+        '200': {description: Servicio y base disponibles}
+        '503': {description: PostgreSQL no disponible}
+components:
+  parameters:
+    format:
+      name: format
+      in: query
+      schema: {type: string, enum: [xml, json], default: xml}
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [nombre, apellido_paterno, apellido_materno, email, password]
+      properties:
+        nombre: {type: string}
+        apellido_paterno: {type: string}
+        apellido_materno: {type: string}
+        email: {type: string, format: email}
+        password: {type: string, format: password, minLength: 8}
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: {type: string, format: email}
+        password: {type: string, format: password}

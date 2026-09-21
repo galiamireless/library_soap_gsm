@@ -26,6 +26,17 @@ paths:
         - {name: format, in: query, schema: {type: string, enum: [xml, json], default: xml}}
       responses:
         '200': {description: Catálogo en XML o JSON}
+    post:
+      summary: Agrega un libro al catálogo
+      parameters:
+        - {name: format, in: query, schema: {type: string, enum: [xml, json], default: xml}}
+      requestBody:
+        required: true
+        content:
+          application/json: {schema: {type: object, required: [isbn, title], properties: {isbn: {type: string}, title: {type: string}, author: {type: string}, publisher: {type: string}, publicationYear: {type: integer}, price: {type: number}, stock: {type: integer}, description: {type: string}, format: {type: string}}}}
+      responses:
+        '201': {description: Libro creado}
+        '400': {description: isbn o title faltante}
   /books/{isbn}:
     tags: [Catálogo]
     get:

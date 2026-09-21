@@ -124,6 +124,14 @@ def create_app(test_config: dict | None = None, *, repository=None) -> Flask:
             return _response({"books": result, "count": len(result)}, "json")
         return _response(xml_codec.serialize_library(result), "xml")
 
+    @app.post("/books")
+    def create_book():
+        data = request.get_json(silent=True) or request.form.to_dict()
+        if not data.get("isbn") or not data.get("title"):
+            return _error("isbn y title son obligatorios", 400)
+        book = get_repository().create_book(data)
+        return _response(book, _format(), 201)
+
     @app.get("/books/minimal")
     def minimal_books():
         result = get_repository().list_minimal_books()
