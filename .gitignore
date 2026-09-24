@@ -4,3 +4,4 @@ __pycache__/
 .pytest_cache/
 *.pyc
 *.class
+MONOREPO_COMPLETO.zip 
