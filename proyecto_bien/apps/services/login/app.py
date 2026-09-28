@@ -31,7 +31,7 @@ SWAGGER_HTML = """<!doctype html>
 </html>"""
 
 
-def create_app(test_config: dict | None = None, *, repository=None, mailer=send_verification_email) -> Flask:
+def create_app(test_config: dict | None = None, *, repository=None, mailer=None) -> Flask:
     settings = Settings.from_env()
     app = Flask(__name__)
     app.config.from_mapping(

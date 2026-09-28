@@ -121,9 +121,12 @@ No importa si se hace desde pgAdmin o desde otro cliente visual. Lo importante e
 
 ### 5.1 Arranque
 
+Abre CMD y ejecuta el servicio desde la raíz `proyecto_bien`, como módulo del paquete:
+
 ```cmd
-cd "C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien\apps\services\login"
-C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien\.venv\Scripts\python.exe app.py
+cd /d "C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien"
+.venv\Scripts\activate
+python -m apps.services.login.app
 ```
 
 ### 5.2 Verificación
@@ -141,7 +144,7 @@ Debe devolver una respuesta válida del servicio.
 ### 6.1 Registrar usuario
 
 ```cmd
-curl -X POST "http://127.0.0.1:5000/register?format=json" -H "Content-Type: application/json" -d "{\"nombre\":\"Ana\",\"apellido_paterno\":\"Lopez\",\"apellido_materno\":\"Diaz\",\"email\":\"ana@example.com\",\"password\":\"Correcta123!\"}"
+curl -X POST "http://127.0.0.1:5000/register?format=json" -H "Content-Type: application/json" -d "{\"nombre\":\"Ana\",\"apellido_paterno\":\"Lopez\",\"apellido_materno\":\"Diaz\",\"email\":\"ana.jwt.demo@example.com\",\"password\":\"Correcta123!\"}"
 ```
 
 ### 6.2 Verificar correo
@@ -153,7 +156,7 @@ curl "http://127.0.0.1:5000/verify-email?format=json&token=TU_TOKEN_DE_VERIFICAC
 ### 6.3 Login con emisión de JWT
 
 ```cmd
-curl -X POST "http://127.0.0.1:5000/login?format=json" -H "Content-Type: application/json" -d "{\"email\":\"ana@example.com\",\"password\":\"Correcta123!\"}"
+curl -X POST "http://127.0.0.1:5000/login?format=json" -H "Content-Type: application/json" -d "{\"email\":\"ana.jwt.demo@example.com\",\"password\":\"Correcta123!\"}"
 ```
 
 Debe devolver un JWT real, por ejemplo:
@@ -184,9 +187,12 @@ curl -X POST "http://127.0.0.1:5000/logout?format=json" -H "Authorization: Beare
 
 ### 7.1 Arranque
 
+Abre otra ventana de CMD y ejecuta el servicio book desde la misma raíz:
+
 ```cmd
-cd "C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien\apps\services\soap"
-C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien\.venv\Scripts\python.exe app.py
+cd /d "C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien"
+.venv\Scripts\activate
+python -m apps.services.soap.app
 ```
 
 ### 7.2 Validar catálogo público
