@@ -10,7 +10,7 @@ from werkzeug.exceptions import HTTPException
 from .config import Settings
 from .mailer import print_verification_email, send_verification_email
 from .repository import LoginRepository, UserAlreadyExistsError
-from .security import hash_password, new_token, verify_password
+from .security import create_jwt, decode_jwt, get_bearer_token, hash_password, new_token, verify_password
 from .serialization import json_bytes, xml_bytes
 
 
@@ -46,7 +46,7 @@ def create_app(test_config: dict | None = None, *, repository=None, mailer=send_
     if test_config:
         app.config.update(test_config)
     app.extensions["repository"] = repository or LoginRepository(settings.db_config, settings.db_schema)
-    app.extensions["mailer"] = print_verification_email if settings.email_mode == "console" else mailer
+    app.extensions["mailer"] = mailer if mailer is not None else (print_verification_email if settings.email_mode == "console" else send_verification_email)
 
     def output_format() -> str:
         return "json" if request.args.get("format", "xml").lower() == "json" else "xml"
@@ -67,8 +67,14 @@ def create_app(test_config: dict | None = None, *, repository=None, mailer=send_
         return data if data is not None else request.form.to_dict()
 
     def current_user():
-        token = session.get("session_token")
-        return app.extensions["repository"].get_session_user(token) if token else None
+        token = get_bearer_token() or session.get("session_token")
+        if not token:
+            return None
+        try:
+            decode_jwt(token)
+        except ValueError:
+            return None
+        return app.extensions["repository"].get_session_user(token)
 
     @app.get("/")
     def index():
@@ -128,12 +134,19 @@ def create_app(test_config: dict | None = None, *, repository=None, mailer=send_
             return error("Credenciales inválidas.", 401)
         if not user["email_verified"]:
             return error("Debes verificar tu correo antes de iniciar sesión.", 403)
-        token = new_token()
+        token = create_jwt({
+            "user_id": user["user_id"],
+            "first_name": user["first_name"],
+            "last_name": user["last_name"],
+            "maternal_last_name": user["maternal_last_name"],
+            "email": user["email"],
+            "email_verified": True,
+        }, expires_in=8 * 60 * 60)
         expires_at = datetime.now(timezone.utc) + timedelta(hours=8)
         app.extensions["repository"].create_session(user["user_id"], token, expires_at)
         session.clear()
         session["session_token"] = token
-        result = {"message": "Sesión iniciada.", "user": {key: user[key] for key in (
+        result = {"message": "Sesión iniciada.", "token": token, "token_type": "Bearer", "expires_in": 8 * 60 * 60, "user": {key: user[key] for key in (
             "user_id", "first_name", "last_name", "maternal_last_name", "email",
         )}, "expires_at": expires_at.isoformat()}
         result.update(links(("self", "/session"), ("logout", "/logout")))
@@ -141,7 +154,7 @@ def create_app(test_config: dict | None = None, *, repository=None, mailer=send_
 
     @app.post("/logout")
     def logout():
-        token = session.pop("session_token", None)
+        token = get_bearer_token() or session.pop("session_token", None)
         if token:
             app.extensions["repository"].delete_session(token)
         session.clear()

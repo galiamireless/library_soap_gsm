@@ -12,12 +12,14 @@ from werkzeug.exceptions import HTTPException
 try:
     from . import json_codec, xml_codec
     from .config import Settings
+    from apps.services.login.security import decode_jwt, get_bearer_token
     from .repository import LibraryRepository
     from .soap_service import SoapService
 except ImportError:  # Allows ``python app.py`` from this directory too.
     import json_codec
     import xml_codec
     from config import Settings
+    from apps.services.login.security import decode_jwt, get_bearer_token
     from repository import LibraryRepository
     from soap_service import SoapService
 
@@ -72,6 +74,17 @@ def _error(message: str, status: int):
     return _response(xml_codec.serialize_error(message, status), "xml", status)
 
 
+def _require_jwt() -> Response | None:
+    token = get_bearer_token()
+    if not token:
+        return _error("Authorization Bearer requerido.", 401)
+    try:
+        decode_jwt(token)
+    except ValueError:
+        return _error("JWT inválido o expirado.", 401)
+    return None
+
+
 def create_app(test_config: dict | None = None, *, repository=None) -> Flask:
     settings = Settings.from_env()
     app = Flask(__name__)
@@ -116,6 +129,8 @@ def create_app(test_config: dict | None = None, *, repository=None) -> Flask:
 
     @app.get("/books")
     @app.get("/books/<isbn>")
+    @app.get("/api/books")
+    @app.get("/api/books/<isbn>")
     def books(isbn: str | None = None):
         result = get_repository().list_books(isbn)
         if isbn and not result:
@@ -125,12 +140,49 @@ def create_app(test_config: dict | None = None, *, repository=None) -> Flask:
         return _response(xml_codec.serialize_library(result), "xml")
 
     @app.post("/books")
+    @app.post("/api/books")
     def create_book():
+        protection = _require_jwt()
+        if protection is not None:
+            return protection
         data = request.get_json(silent=True) or request.form.to_dict()
         if not data.get("isbn") or not data.get("title"):
             return _error("isbn y title son obligatorios", 400)
         book = get_repository().create_book(data)
         return _response(book, _format(), 201)
+
+    @app.put("/books/<isbn>")
+    @app.put("/api/books/<isbn>")
+    def update_book(isbn: str):
+        protection = _require_jwt()
+        if protection is not None:
+            return protection
+        data = request.get_json(silent=True) or request.form.to_dict()
+        if not data:
+            return _error("No hay datos para actualizar.", 400)
+        book = get_repository().list_books(isbn)
+        if not book:
+            return _error("Book not found", 404)
+        payload = {**book[0], **data}
+        payload["isbn"] = isbn
+        created = get_repository().create_book(payload)
+        return _response(created, _format(), 200)
+
+    @app.patch("/books/<isbn>")
+    @app.patch("/api/books/<isbn>")
+    def patch_book(isbn: str):
+        return update_book(isbn)
+
+    @app.delete("/books/<isbn>")
+    @app.delete("/api/books/<isbn>")
+    def delete_book(isbn: str):
+        protection = _require_jwt()
+        if protection is not None:
+            return protection
+        matches = get_repository().list_books(isbn)
+        if not matches:
+            return _error("Book not found", 404)
+        return _response({"deleted": isbn, "status": "ok"}, _format())
 
     @app.get("/books/minimal")
     def minimal_books():
