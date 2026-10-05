@@ -1,0 +1,6 @@
+9. Pruebas automatizadas del proyecto
+PS> 
+.\.venv\Scripts\python.exe -m pytest apps\services\login\tests apps\services\soap\tests apps\services\test_microservices.py -q
+
+...............                                                          [100%]
+15 passed in 8.39s

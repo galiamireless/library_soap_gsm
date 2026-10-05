@@ -7,11 +7,18 @@ from email_validator import EmailNotValidError, validate_email
 from flask import Flask, Response, request, send_from_directory, session
 from werkzeug.exceptions import HTTPException
 
-from .config import Settings
-from .mailer import print_verification_email, send_verification_email
-from .repository import LoginRepository, UserAlreadyExistsError
-from .security import create_jwt, decode_jwt, get_bearer_token, hash_password, new_token, verify_password
-from .serialization import json_bytes, xml_bytes
+if __package__:
+    from .config import Settings
+    from .mailer import print_verification_email, send_verification_email
+    from .repository import LoginRepository, UserAlreadyExistsError
+    from .security import create_jwt, decode_jwt, get_bearer_token, hash_password, new_token, verify_password
+    from .serialization import json_bytes, xml_bytes
+else:
+    from config import Settings
+    from mailer import print_verification_email, send_verification_email
+    from repository import LoginRepository, UserAlreadyExistsError
+    from security import create_jwt, decode_jwt, get_bearer_token, hash_password, new_token, verify_password
+    from serialization import json_bytes, xml_bytes
 
 
 SERVICE_DIR = Path(__file__).resolve().parent

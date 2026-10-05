@@ -1,0 +1,13 @@
+5. Creacion de autor con permiso
+PS> 
+.\.venv\Scripts\python.exe -m pytest apps\services\test_microservices.py::test_authors_service_supports_public_reads_and_role_guarded_writes -vv
+
+============================= test session starts =============================
+platform win32 -- Python 3.14.0, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien
+collecting ... collected 1 item
+
+apps/services/test_microservices.py::test_authors_service_supports_public_reads_and_role_guarded_writes PASSED [100%]
+
+============================== 1 passed in 0.94s ==============================

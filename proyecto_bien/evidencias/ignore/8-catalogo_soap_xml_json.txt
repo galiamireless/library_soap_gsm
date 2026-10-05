@@ -1,0 +1,14 @@
+8. Catalogo SOAP en XML y JSON
+PS> 
+.\.venv\Scripts\python.exe -m pytest apps\services\soap\tests\test_app.py::test_catalog_routes_default_to_xml apps\services\soap\tests\test_app.py::test_catalog_routes_support_json_without_changing_xml_default -vv
+
+============================= test session starts =============================
+platform win32 -- Python 3.14.0, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien
+collecting ... collected 2 items
+
+apps/services/soap/tests/test_app.py::test_catalog_routes_default_to_xml PASSED [ 50%]
+apps/services/soap/tests/test_app.py::test_catalog_routes_support_json_without_changing_xml_default PASSED [100%]
+
+============================== 2 passed in 5.60s ==============================

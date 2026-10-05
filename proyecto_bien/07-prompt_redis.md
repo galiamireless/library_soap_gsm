@@ -14,3 +14,9 @@ Validación: cada servicio debe verificar firma, algoritmo, expiración y claims
 • Roles: el JWT debe incluir user_id y role_id; las operaciones administrativas deben comprobar que el usuario tenga rol autorizado.
 • CORS: permitir únicamente los orígenes de las aplicaciones cliente en producción.
 • Seguridad adicional: usar HTTPS, no guardar contraseñas ni tokens en logs y devolver 401 para tokens ausentes o inválidos y 403 para roles insuficientes.
+
+INCORPORA REDIS A LA APLICACION DONDE SEA PERTINENTE.
+
+CUIDA QUE TODO FUNCIONE Y QUE LO QUE YA SE TENIA ANTERIORMENTE SI BIEN ESTAMOS AGREGANDO NUEVAS COSAS, TODO FUNCIONE A LA PERFECCION LOS 6 MICROSERVICIOS, LOS NUEVOS Y LOS DE ANTES, LOGIN Y BOOKS ASI COMO ELECTRON Y SOAP.
+
+DESPUES DE HACER DESARROLLAR LO SOLICITADOS HAZ UN readmeMicroservicios.md DONDE INDIQUES EL PASO A PASO PARA CORRER TODO DESDE CMD SIN PSQL (NO PUEDO USARLO EN MI COMPU) Y AL FINAL AGREGA UNA SECCION DE EVIDENCIAS DONDE ME INDIQUES QUE ES LO QUE SERA CADA EVIDENCIA, EL SCRIPT PARA CORRERLO O HACERLO Y LO ESPERADO. HAZ DE 5 A 10 EVIDENCIAS. BASICAMENTE ESTE ARCHIVO DEBE DE DECIRME COMO HACER Y CORRER TODO SIN TENER QUE CONSULTAR NADA MAS.

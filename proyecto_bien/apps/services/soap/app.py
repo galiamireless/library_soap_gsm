@@ -9,6 +9,8 @@ from flask import Flask, Response, current_app, request, send_from_directory, ur
 from swagger_ui_bundle import swagger_ui_path
 from werkzeug.exceptions import HTTPException
 
+from apps.services.redis_cache import cache
+
 try:
     from . import json_codec, xml_codec
     from .config import Settings
@@ -132,7 +134,11 @@ def create_app(test_config: dict | None = None, *, repository=None) -> Flask:
     @app.get("/api/books")
     @app.get("/api/books/<isbn>")
     def books(isbn: str | None = None):
-        result = get_repository().list_books(isbn)
+        cache_key = f"books:{isbn}" if isbn else "books:all"
+        cached = cache.get(cache_key)
+        result = cached if cached is not None else get_repository().list_books(isbn)
+        if cached is None and result:
+            cache.set(cache_key, result, ttl=180)
         if isbn and not result:
             return _error("Book not found", 404)
         if _format() == "json":

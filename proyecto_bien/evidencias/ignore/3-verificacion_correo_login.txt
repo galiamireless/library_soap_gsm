@@ -1,0 +1,13 @@
+3. Verificacion de correo y login
+PS> 
+.\.venv\Scripts\python.exe -m pytest apps\services\login\tests\test_app.py::test_login_requires_verified_email_then_session_and_logout_work -vv
+
+============================= test session starts =============================
+platform win32 -- Python 3.14.0, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien
+collecting ... collected 1 item
+
+apps/services/login/tests/test_app.py::test_login_requires_verified_email_then_session_and_logout_work PASSED [100%]
+
+============================== 1 passed in 2.42s ==============================

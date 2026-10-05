@@ -1,0 +1,13 @@
+7. Pago y actualizacion de estado
+PS> 
+.\.venv\Scripts\python.exe -m pytest apps\services\test_microservices.py::test_orders_and_payments_flow_updates_status_with_jwt -vv
+
+============================= test session starts =============================
+platform win32 -- Python 3.14.0, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien
+collecting ... collected 1 item
+
+apps/services/test_microservices.py::test_orders_and_payments_flow_updates_status_with_jwt PASSED [100%]
+
+============================== 1 passed in 0.81s ==============================

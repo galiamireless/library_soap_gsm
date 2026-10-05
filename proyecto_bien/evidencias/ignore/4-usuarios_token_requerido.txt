@@ -1,0 +1,13 @@
+4. Users protegido con JWT
+PS> 
+.\.venv\Scripts\python.exe -m pytest apps\services\test_microservices.py::test_users_service_requires_jwt_for_admin_actions -vv
+
+============================= test session starts =============================
+platform win32 -- Python 3.14.0, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\galia\OneDrive\Escritorio\7mo semestre\Integracion\pagina web\SOAP\library_soap_gsm\proyecto_bien
+collecting ... collected 1 item
+
+apps/services/test_microservices.py::test_users_service_requires_jwt_for_admin_actions PASSED [100%]
+
+============================== 1 passed in 1.06s ==============================
