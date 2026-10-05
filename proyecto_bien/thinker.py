@@ -374,8 +374,8 @@ class ThinkerApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("Thinker | Consola de microservicios")
-        self.root.geometry("1380x850")
-        self.root.minsize(1080, 700)
+        self.root.geometry("1160x820")
+        self.root.minsize(980, 680)
         self.events = queue.Queue()
         self.token = tk.StringVar(value="")
         self.service_indicators = {}
