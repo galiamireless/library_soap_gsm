@@ -130,6 +130,45 @@ class LibraryRepository:
             connection.commit()
             return dict(zip(("isbn", "title", "publisher", "publicationYear", "price", "stock", "description", "format"), row))
 
+    def update_book(self, isbn: str, data: dict[str, Any]) -> dict[str, Any] | None:
+        with self.transaction() as (_, cursor):
+            cursor.execute(f"""
+                UPDATE {self.schema}.books
+                   SET title = %s, publisher = %s, publication_year = %s,
+                       price = %s, stock = %s, description = %s,
+                       format_type = %s, updated_at = CURRENT_TIMESTAMP
+                 WHERE isbn = %s
+                RETURNING isbn, title, publisher, publication_year, price, stock, description, format_type
+            """, (
+                data["title"], data.get("publisher"), data.get("publicationYear"),
+                data.get("price"), data.get("stock", 0), data.get("description"),
+                data.get("format"), isbn,
+            ))
+            row = cursor.fetchone()
+            if row is None:
+                return None
+            if "author" in data:
+                cursor.execute(f"DELETE FROM {self.schema}.book_authors WHERE isbn = %s", (isbn,))
+                author_name = str(data.get("author", "")).strip()
+                if author_name:
+                    cursor.execute(f"""
+                        INSERT INTO {self.schema}.authors (name) VALUES (%s)
+                        ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+                        RETURNING author_id
+                    """, (author_name,))
+                    author_id = cursor.fetchone()[0]
+                    cursor.execute(f"""
+                        INSERT INTO {self.schema}.book_authors (isbn, author_id)
+                        VALUES (%s, %s) ON CONFLICT DO NOTHING
+                    """, (isbn, author_id))
+            return dict(zip(("isbn", "title", "publisher", "publicationYear", "price", "stock", "description", "format"), row))
+
+    def delete_book(self, isbn: str) -> bool:
+        with self.transaction() as (_, cursor):
+            cursor.execute(f"DELETE FROM {self.schema}.clasificaciones_cloud WHERE isbn = %s", (isbn,))
+            cursor.execute(f"DELETE FROM {self.schema}.books WHERE isbn = %s", (isbn,))
+            return cursor.rowcount > 0
+
     def list_minimal_books(self) -> list[dict[str, Any]]:
         return self.list_books()
 

@@ -76,14 +76,16 @@ def _error(message: str, status: int):
     return _response(xml_codec.serialize_error(message, status), "xml", status)
 
 
-def _require_jwt() -> Response | None:
+def _require_jwt(required_roles: set[int] | None = None) -> Response | None:
     token = get_bearer_token()
     if not token:
         return _error("Authorization Bearer requerido.", 401)
     try:
-        decode_jwt(token)
+        payload = decode_jwt(token)
     except ValueError:
         return _error("JWT inválido o expirado.", 401)
+    if required_roles is not None and int(payload.get("role_id", 0) or 0) not in required_roles:
+        return _error("No tienes permisos suficientes.", 403)
     return None
 
 
@@ -148,31 +150,32 @@ def create_app(test_config: dict | None = None, *, repository=None) -> Flask:
     @app.post("/books")
     @app.post("/api/books")
     def create_book():
-        protection = _require_jwt()
+        protection = _require_jwt({1, 2})
         if protection is not None:
             return protection
         data = request.get_json(silent=True) or request.form.to_dict()
         if not data.get("isbn") or not data.get("title"):
             return _error("isbn y title son obligatorios", 400)
         book = get_repository().create_book(data)
+        cache.delete("books:all")
+        cache.delete(f"books:{data['isbn']}")
         return _response(book, _format(), 201)
 
     @app.put("/books/<isbn>")
     @app.put("/api/books/<isbn>")
     def update_book(isbn: str):
-        protection = _require_jwt()
+        protection = _require_jwt({1, 2})
         if protection is not None:
             return protection
         data = request.get_json(silent=True) or request.form.to_dict()
         if not data:
             return _error("No hay datos para actualizar.", 400)
-        book = get_repository().list_books(isbn)
-        if not book:
+        updated = get_repository().update_book(isbn, data)
+        if not updated:
             return _error("Book not found", 404)
-        payload = {**book[0], **data}
-        payload["isbn"] = isbn
-        created = get_repository().create_book(payload)
-        return _response(created, _format(), 200)
+        cache.delete("books:all")
+        cache.delete(f"books:{isbn}")
+        return _response(updated, _format(), 200)
 
     @app.patch("/books/<isbn>")
     @app.patch("/api/books/<isbn>")
@@ -182,12 +185,13 @@ def create_app(test_config: dict | None = None, *, repository=None) -> Flask:
     @app.delete("/books/<isbn>")
     @app.delete("/api/books/<isbn>")
     def delete_book(isbn: str):
-        protection = _require_jwt()
+        protection = _require_jwt({1, 2})
         if protection is not None:
             return protection
-        matches = get_repository().list_books(isbn)
-        if not matches:
+        if not get_repository().delete_book(isbn):
             return _error("Book not found", 404)
+        cache.delete("books:all")
+        cache.delete(f"books:{isbn}")
         return _response({"deleted": isbn, "status": "ok"}, _format())
 
     @app.get("/books/minimal")

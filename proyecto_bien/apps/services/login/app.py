@@ -83,6 +83,18 @@ def create_app(test_config: dict | None = None, *, repository=None, mailer=None)
             return None
         return app.extensions["repository"].get_session_user(token)
 
+    def require_admin():
+        token = get_bearer_token()
+        if not token:
+            return error("Authorization Bearer requerido.", 401)
+        try:
+            payload = decode_jwt(token)
+        except ValueError:
+            return error("JWT inválido o expirado.", 401)
+        if int(payload.get("role_id", 0) or 0) != 1:
+            return error("Se requiere el rol administrador.", 403)
+        return None
+
     @app.get("/")
     def index():
         return respond({"service": "library-login", "status": "running", "routes": [
@@ -148,6 +160,7 @@ def create_app(test_config: dict | None = None, *, repository=None, mailer=None)
             "maternal_last_name": user["maternal_last_name"],
             "email": user["email"],
             "email_verified": True,
+            "role_id": int(user.get("role_id", 3) or 3),
         }, expires_in=8 * 60 * 60)
         expires_at = datetime.now(timezone.utc) + timedelta(hours=8)
         app.extensions["repository"].create_session(user["user_id"], token, expires_at)
@@ -177,6 +190,99 @@ def create_app(test_config: dict | None = None, *, repository=None, mailer=None)
         result = {"authenticated": True, "user": user}
         result.update(links(("self", "/session"), ("logout", "/logout")))
         return respond(result)
+
+    @app.get("/admin/users")
+    def list_login_users():
+        denied = require_admin()
+        if denied:
+            return denied
+        return respond({"count": len(app.extensions["repository"].list_users()), "items": app.extensions["repository"].list_users()})
+
+    @app.get("/admin/users/<int:user_id>")
+    def get_login_user(user_id: int):
+        denied = require_admin()
+        if denied:
+            return denied
+        user = app.extensions["repository"].get_user(user_id)
+        return respond({"user": user}) if user else error("Usuario no encontrado.", 404)
+
+    @app.post("/admin/users")
+    def create_login_user():
+        denied = require_admin()
+        if denied:
+            return denied
+        data = body()
+        required = ("first_name", "last_name", "maternal_last_name", "email", "password")
+        if any(not str(data.get(key, "")).strip() for key in required):
+            return error("Todos los campos de cuenta son obligatorios.", 400)
+        try:
+            email = validate_email(str(data["email"]).strip(), check_deliverability=False).normalized
+        except EmailNotValidError:
+            return error("El correo electrónico no es válido.", 400)
+        password = str(data["password"])
+        if len(password) < 8:
+            return error("La contraseña debe tener al menos 8 caracteres.", 400)
+        role_id = int(data.get("role_id", 3) or 3)
+        if role_id not in {1, 2, 3}:
+            return error("role_id debe ser 1, 2 o 3.", 400)
+        verification_token = new_token()
+        try:
+            user = app.extensions["repository"].create_user({
+                "first_name": str(data["first_name"]).strip(),
+                "last_name": str(data["last_name"]).strip(),
+                "maternal_last_name": str(data["maternal_last_name"]).strip(),
+                "email": email,
+                "password_hash": hash_password(password),
+                "role_id": role_id,
+                "verification_token": verification_token,
+            })
+        except UserAlreadyExistsError:
+            return error("El correo electrónico ya está registrado.", 409)
+        app.extensions["mailer"](app.config["SERVICE_SETTINGS"], email, verification_token)
+        return respond({"message": "Cuenta creada; debe verificar su correo.", "user": user}, 201)
+
+    @app.put("/admin/users/<int:user_id>")
+    @app.patch("/admin/users/<int:user_id>")
+    def update_login_user(user_id: int):
+        denied = require_admin()
+        if denied:
+            return denied
+        data = body()
+        changes = {}
+        for key in ("first_name", "last_name", "maternal_last_name", "email"):
+            if key in data:
+                changes[key] = str(data[key]).strip()
+        if "email" in changes:
+            try:
+                changes["email"] = validate_email(changes["email"], check_deliverability=False).normalized
+            except EmailNotValidError:
+                return error("El correo electrónico no es válido.", 400)
+        if "password" in data and str(data["password"]):
+            password = str(data["password"])
+            if len(password) < 8:
+                return error("La contraseña debe tener al menos 8 caracteres.", 400)
+            changes["password_hash"] = hash_password(password)
+        if "role_id" in data:
+            role_id = int(data["role_id"])
+            if role_id not in {1, 2, 3}:
+                return error("role_id debe ser 1, 2 o 3.", 400)
+            changes["role_id"] = role_id
+        if "email_verified" in data:
+            changes["email_verified"] = bool(data["email_verified"])
+        try:
+            user = app.extensions["repository"].update_user(user_id, changes)
+        except UserAlreadyExistsError:
+            return error("El correo electrónico ya está registrado.", 409)
+        return respond({"user": user}) if user else error("Usuario no encontrado.", 404)
+
+    @app.delete("/admin/users/<int:user_id>")
+    def delete_login_user(user_id: int):
+        denied = require_admin()
+        if denied:
+            return denied
+        if not app.extensions["repository"].delete_user(user_id):
+            return error("Usuario no encontrado.", 404)
+        return respond({"message": "Cuenta eliminada.", "user_id": user_id})
 
     @app.get("/docs")
     @app.get("/docs/")

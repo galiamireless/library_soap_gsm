@@ -107,5 +107,6 @@ COMMIT;
 -- En producción, conceder solo los permisos del esquema library al usuario del servicio:
 -- GRANT USAGE ON SCHEMA library TO library_classifier_user;
 -- GRANT SELECT ON ALL TABLES IN SCHEMA library TO library_classifier_user;
+-- GRANT INSERT, UPDATE, DELETE ON library.books, library.book_authors, library.authors TO library_classifier_user;
 -- GRANT INSERT, UPDATE ON library.clasificadores, library.clasificaciones_cloud, library.clientes_servidos TO library_classifier_user;
 -- GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA library TO library_classifier_user;

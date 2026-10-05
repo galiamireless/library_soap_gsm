@@ -1,12 +1,13 @@
 from datetime import datetime, timezone
 
 from apps.services.login.app import create_app
-from apps.services.login.security import hash_password
+from apps.services.login.security import create_jwt, hash_password
 
 
 class FakeRepository:
     def __init__(self):
         self.user = None
+        self.users = []
         self.sessions = {}
 
     def check_health(self):
@@ -20,13 +21,15 @@ class FakeRepository:
             "maternal_last_name": data["maternal_last_name"],
             "email": data["email"],
             "email_verified": False,
+            "role_id": data.get("role_id", 3),
             "created_at": datetime.now(timezone.utc),
             "verification_token": data["verification_token"],
             "password_hash": data["password_hash"],
         }
+        self.users.append(self.user)
         return {key: self.user[key] for key in (
             "user_id", "first_name", "last_name", "maternal_last_name", "email",
-            "email_verified", "created_at",
+            "email_verified", "role_id", "created_at",
         )}
 
     def verify_email(self, token):
@@ -39,9 +42,28 @@ class FakeRepository:
         return None
 
     def find_by_email(self, email):
-        if self.user and self.user["email"] == email:
-            return self.user
-        return None
+        return next((user for user in self.users if user["email"] == email), None)
+
+    def list_users(self):
+        return [{key: user[key] for key in ("user_id", "first_name", "last_name", "maternal_last_name", "email", "email_verified", "role_id", "created_at")} for user in self.users]
+
+    def get_user(self, user_id):
+        user = next((item for item in self.users if item["user_id"] == user_id), None)
+        return {key: user[key] for key in ("user_id", "first_name", "last_name", "maternal_last_name", "email", "email_verified", "role_id", "created_at")} if user else None
+
+    def update_user(self, user_id, data):
+        user = next((item for item in self.users if item["user_id"] == user_id), None)
+        if not user:
+            return None
+        user.update(data)
+        return self.get_user(user_id)
+
+    def delete_user(self, user_id):
+        user = next((item for item in self.users if item["user_id"] == user_id), None)
+        if not user:
+            return False
+        self.users.remove(user)
+        return True
 
     def create_session(self, user_id, token, expires_at):
         self.sessions[token] = user_id
@@ -113,3 +135,24 @@ def test_invalid_email_and_wrong_password_are_rejected():
     app.extensions["repository"].user["email_verified"] = True
     response = client.post("/login?format=json", json={"email": "ana@example.com", "password": "wrong"})
     assert response.status_code == 401
+
+
+def test_admin_account_crud_requires_admin_jwt(monkeypatch):
+    monkeypatch.setenv("JWT_SECRET_KEY", "login-test-jwt-secret")
+    app, _, sent = build_app()
+    client = app.test_client()
+    assert client.get("/admin/users?format=json").status_code == 401
+    token = create_jwt({"user_id": 1, "role_id": 1}, expires_in=3600)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    created = client.post("/admin/users?format=json", json={
+        "first_name": "Luis", "last_name": "Vega", "maternal_last_name": "Rios",
+        "email": "luis@example.com", "password": "Correcta123!", "role_id": 2,
+    }, headers=headers)
+    assert created.status_code == 201
+    user_id = created.get_json()["user"]["user_id"]
+    assert sent[-1][0] == "luis@example.com"
+    assert client.get("/admin/users?format=json", headers=headers).get_json()["count"] == 1
+    updated = client.patch(f"/admin/users/{user_id}?format=json", json={"role_id": 3}, headers=headers)
+    assert updated.get_json()["user"]["role_id"] == 3
+    assert client.delete(f"/admin/users/{user_id}?format=json", headers=headers).status_code == 200

@@ -1,12 +1,14 @@
 from apps.services.soap.app import create_app
+from apps.services.login.security import create_jwt
+
+import os
+
+os.environ.setdefault("JWT_SECRET_KEY", "soap-test-secret")
 
 
 class FakeRepository:
-    def check_health(self):
-        return True
-
-    def list_books(self, isbn=None):
-        books = [{
+    def __init__(self):
+        self.books = [{
             "isbn": "9786070001001",
             "title": "Libro",
             "author": "Autora",
@@ -18,7 +20,31 @@ class FakeRepository:
             "format": "Impreso",
             "imageUrl": "image.png",
         }]
-        return [book for book in books if isbn is None or isbn == book["isbn"]]
+
+    def check_health(self):
+        return True
+
+    def list_books(self, isbn=None):
+        return [book for book in self.books if isbn is None or isbn == book["isbn"]]
+
+    def create_book(self, data):
+        book = {**data, "author": data.get("author", ""), "imageUrl": ""}
+        self.books.append(book)
+        return book
+
+    def update_book(self, isbn, data):
+        book = next((item for item in self.books if item["isbn"] == isbn), None)
+        if not book:
+            return None
+        book.update(data)
+        return book
+
+    def delete_book(self, isbn):
+        book = next((item for item in self.books if item["isbn"] == isbn), None)
+        if not book:
+            return False
+        self.books.remove(book)
+        return True
 
     def list_minimal_books(self):
         return self.list_books()
@@ -79,3 +105,21 @@ def test_root_and_health_are_valid_xml():
 
     assert b"<service>library-classifier</service>" in client.get("/").data
     assert b"<status>ok</status>" in client.get("/health").data
+
+
+def test_books_crud_requires_admin_jwt_and_invalidates_routes():
+    app = create_app({"TESTING": True}, repository=FakeRepository())
+    client = app.test_client()
+    token = create_jwt({"user_id": 1, "role_id": 1}, expires_in=3600)
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = {"isbn": "9780000000001", "title": "Nuevo", "stock": 2, "author": "Autor Nuevo"}
+
+    assert client.post("/books?format=json", json=payload).status_code == 401
+    created = client.post("/books?format=json", json=payload, headers=headers)
+    assert created.status_code == 201
+    updated = client.put("/books/9780000000001?format=json", json={**payload, "title": "Actualizado"}, headers=headers)
+    assert updated.status_code == 200
+    assert updated.get_json()["title"] == "Actualizado"
+    deleted = client.delete("/books/9780000000001?format=json", headers=headers)
+    assert deleted.status_code == 200
+    assert client.get("/books/9780000000001?format=json").status_code == 404

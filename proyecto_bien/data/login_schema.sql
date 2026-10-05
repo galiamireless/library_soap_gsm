@@ -9,12 +9,16 @@ CREATE TABLE IF NOT EXISTS library.users (
     maternal_last_name VARCHAR(150) NOT NULL,
     email VARCHAR(254) NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
+    role_id SMALLINT NOT NULL DEFAULT 3 CHECK (role_id IN (1, 2, 3)),
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     email_verification_token VARCHAR(128) UNIQUE,
     email_verification_expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE library.users
+    ADD COLUMN IF NOT EXISTS role_id SMALLINT NOT NULL DEFAULT 3;
 
 CREATE TABLE IF NOT EXISTS library.auth_sessions (
     session_id BIGSERIAL PRIMARY KEY,
@@ -31,5 +35,5 @@ COMMIT;
 
 -- El servicio necesita estos permisos además de los definidos para el catálogo:
 -- GRANT USAGE ON SCHEMA library TO library_classifier_user;
--- GRANT SELECT, INSERT, UPDATE ON library.users, library.auth_sessions TO library_classifier_user;
+-- GRANT SELECT, INSERT, UPDATE, DELETE ON library.users, library.auth_sessions TO library_classifier_user;
 -- GRANT USAGE, SELECT ON SEQUENCE library.users_user_id_seq, library.auth_sessions_session_id_seq TO library_classifier_user;
