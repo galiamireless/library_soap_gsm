@@ -1,0 +1,4 @@
+1.- TOMANDO EN CONSIDERACION EL CATALOGO DE LIBROS DISPONIBLE en electron dentro de proyecto_bien, hay que usar electron y modificar agregando una nueva vista que use ollama y le pregunte a deepseek sobre los libros que tiene nuestro catalogo
+HAZ UN ARCHIVO ollama_electron.md o readme ollama electron que indique el paso a paso desde 0 para correr electron desde cmd sin hacer ningun uso de psql (no lo tengo en mi maquina) en caso de ocuparlo sino solo da los pasos para correr electron acceder a dicha nueva interfaz y hacer uso de deepseek con un ejemplo
+
+ en electron debo tener una vista para ahi directamente preguntar y mandar mensajes a la ia: OJO NO DEBE SER DE LA MANERA TRADICIONAL DE CHATBOT, TIENE QUE SER IMPLEMENTADA DIFERENTE YA SEA QUE EN VEZ DE PURO TEXTO MUESTRE CARDS O CONTAINERS O BOTONES O NO SE ALGO INOVADOR QUE SEA ACORDE A LA APLICACION DE LIBRERIA

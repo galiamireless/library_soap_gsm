@@ -16,17 +16,71 @@
 
         <div class="actions">
           <span id="statusBadge" class="status-pill">Conectando…</span>
+          <button id="assistantBtn" class="secondary-btn" type="button">Asistente IA</button>
           <button id="settingsBtn" class="primary-btn" type="button">Configurar servicio</button>
         </div>
       </header>
 
       <div class="toolbar">
+        <div class="view-switcher" aria-label="Navegación de vista">
+          <button id="catalogTab" class="tab-btn active" type="button">Catálogo</button>
+          <button id="assistantTab" class="tab-btn" type="button">Asistente IA</button>
+        </div>
         <div id="serviceUrlLabel" class="url-tag">http://127.0.0.1:5001/books</div>
       </div>
 
       <main>
-        <section id="booksGrid" class="grid" aria-live="polite"></section>
-        <nav id="pagination" class="pagination" aria-label="Paginación"></nav>
+        <section id="catalogView" class="view-panel active">
+          <section id="booksGrid" class="grid" aria-live="polite"></section>
+          <nav id="pagination" class="pagination" aria-label="Paginación"></nav>
+        </section>
+
+        <section id="assistantView" class="view-panel" aria-live="polite">
+          <div class="discovery-heading">
+            <div>
+              <p class="eyebrow">MESA DE LECTURA · DEEPSEEK</p>
+              <h2>¿Qué quieres descubrir?</h2>
+            </div>
+            <div class="catalog-count"><strong id="assistantBookCount">0</strong><span>títulos disponibles</span></div>
+          </div>
+
+          <div class="discovery-layout">
+            <aside class="discovery-controls">
+              <h3>Explorar por intención</h3>
+              <div class="idea-list">
+                <button class="idea-button" type="button" data-question="Recomiéndame libros para empezar a aprender programación. Prioriza los que tengan stock y explica brevemente por qué.">
+                  <span class="idea-mark">01</span><span><strong>Empezar a programar</strong><small>Una buena primera lectura</small></span><span class="idea-arrow">↗</span>
+                </button>
+                <button class="idea-button" type="button" data-question="Encuentra los libros más económicos que tengan stock. Ordénalos por precio y menciona sus títulos exactos.">
+                  <span class="idea-mark">02</span><span><strong>Hallazgos accesibles</strong><small>Precio y disponibilidad</small></span><span class="idea-arrow">↗</span>
+                </button>
+                <button class="idea-button" type="button" data-question="¿Qué libros del catálogo se relacionan con inteligencia artificial o ciencia de datos? Recomienda los más pertinentes y explica por qué.">
+                  <span class="idea-mark">03</span><span><strong>IA y ciencia de datos</strong><small>Explora nuevas ideas</small></span><span class="idea-arrow">↗</span>
+                </button>
+                <button class="idea-button" type="button" data-question="Quiero regalar un libro. Sugiere hasta tres opciones distintas del catálogo, con una breve razón para cada una.">
+                  <span class="idea-mark">04</span><span><strong>Elegir un regalo</strong><small>Opciones para sorprender</small></span><span class="idea-arrow">↗</span>
+                </button>
+              </div>
+
+              <div class="question-composer">
+                <label for="questionInput">O escribe tu propia búsqueda</label>
+                <textarea id="questionInput" rows="3" placeholder="Ej. Busco una novela breve para llevar de viaje…"></textarea>
+                <button id="sendQuestionBtn" class="primary-btn" type="button"><span>Crear mi selección</span><span aria-hidden="true">↗</span></button>
+                <p id="assistantStatus" class="assistant-status" aria-live="polite">Selecciona una idea o escribe lo que buscas.</p>
+              </div>
+            </aside>
+
+            <section class="selection-area" aria-labelledby="selectionTitle">
+              <div class="selection-heading">
+                <div><p class="eyebrow">CURADURÍA PERSONAL</p><h3 id="selectionTitle">Tu selección</h3></div>
+                <span id="selectionCount" class="selection-count">En espera</span>
+              </div>
+              <div id="aiResponse" class="recommendation-grid">
+                <div class="selection-empty"><span class="empty-glyph" aria-hidden="true">✳</span><strong>Una buena lectura empieza con una pregunta.</strong><span>Tu selección aparecerá aquí.</span></div>
+              </div>
+            </section>
+          </div>
+        </section>
       </main>
     </div>
 
@@ -77,6 +131,12 @@
       const endpointInput = document.getElementById('endpointInput');
       const closeModalBtn = document.getElementById('closeModalBtn');
       const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+      const questionInput = document.getElementById('questionInput');
+      const recommendationGrid = document.getElementById('aiResponse');
+      const assistantStatus = document.getElementById('assistantStatus');
+      const assistantBookCount = document.getElementById('assistantBookCount');
+      const selectionCount = document.getElementById('selectionCount');
+      const sendQuestionBtn = document.getElementById('sendQuestionBtn');
 
       function getSettings() {
         try {
@@ -290,16 +350,201 @@
         serviceUrlLabel.textContent = url;
       }
 
+      function buildCatalogText(books) {
+        return books.map((book) => {
+          const line = `${book.title} - ${book.author} - ISBN: ${book.isbn} - Precio: $${Number(book.price || 0).toFixed(2)} - Stock: ${book.stock}`;
+          return line;
+        }).join('\n');
+      }
+
+      async function askOllama(question, catalogText) {
+        const response = await fetch('http://127.0.0.1:11434/api/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'deepseek-coder:latest',
+            stream: false,
+            prompt: `Eres curador de una librería. Usa exclusivamente los datos del catálogo. No inventes títulos, autores, precios ni disponibilidad. Elige hasta cuatro libros que coincidan con la petición. Responde únicamente con JSON válido, sin bloques markdown, con este formato: {"summary":"breve introducción en español","recommendations":[{"title":"título exacto del catálogo","reason":"motivo breve y específico"}]}. Si no hay coincidencias, usa una lista vacía y explica por qué en summary.\n\nCATALOGO:\n${catalogText}\n\nPETICION:\n${question}`,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Ollama respondió con error ${response.status}. Asegúrate de que el servidor esté activo en http://127.0.0.1:11434`);
+        }
+
+        const data = await response.json();
+        return data.response || 'No se recibió respuesta del modelo.';
+      }
+
+      function parseCuratorResponse(rawResponse) {
+        const cleaned = rawResponse.replace(/```(?:json)?/gi, '').trim();
+        const jsonStart = cleaned.indexOf('{');
+        const jsonEnd = cleaned.lastIndexOf('}');
+        if (jsonStart < 0 || jsonEnd < jsonStart) return null;
+
+        try {
+          const parsed = JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1));
+          return {
+            summary: normalizeText(parsed.summary),
+            recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
+          };
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function createRecommendationCard(book, reason, index) {
+        const card = document.createElement('article');
+        card.className = 'recommendation-card';
+
+        const image = document.createElement('img');
+        image.src = getBookImageUrl(book);
+        image.alt = `Portada de ${book.title}`;
+        image.onerror = () => {
+          image.onerror = null;
+          image.src = 'https://placehold.co/800x500/1f2937/e5eefb?text=Portada+no+disponible';
+        };
+
+        const body = document.createElement('div');
+        body.className = 'recommendation-body';
+        const number = document.createElement('span');
+        number.className = 'recommendation-number';
+        number.textContent = `LECTURA 0${index + 1}`;
+        const title = document.createElement('h4');
+        title.className = 'recommendation-title';
+        title.textContent = book.title;
+        const author = document.createElement('p');
+        author.className = 'recommendation-author';
+        author.textContent = `Por ${book.author}`;
+        const explanation = document.createElement('p');
+        explanation.className = 'recommendation-reason';
+        explanation.textContent = reason || 'Una opción seleccionada del catálogo para tu búsqueda.';
+        const footer = document.createElement('div');
+        footer.className = 'recommendation-footer';
+        const price = document.createElement('strong');
+        price.textContent = `$ ${Number(book.price || 0).toFixed(2)}`;
+        const stock = document.createElement('span');
+        stock.textContent = `Disponibles: ${book.stock}`;
+
+        footer.append(price, stock);
+        body.append(number, title, author, explanation, footer);
+        card.append(image, body);
+        return card;
+      }
+
+      function renderCuratorResponse(rawResponse) {
+        const result = parseCuratorResponse(rawResponse);
+        recommendationGrid.replaceChildren();
+
+        if (!result) {
+          const note = document.createElement('p');
+          note.className = 'curator-note';
+          note.textContent = rawResponse;
+          recommendationGrid.appendChild(note);
+          selectionCount.textContent = 'Respuesta de IA';
+          assistantStatus.textContent = 'La IA respondió, pero no organizó el resultado como fichas.';
+          return;
+        }
+
+        if (result.summary) {
+          const summary = document.createElement('p');
+          summary.className = 'curator-summary';
+          summary.textContent = result.summary;
+          recommendationGrid.appendChild(summary);
+        }
+
+        const recommendations = result.recommendations
+          .map((recommendation) => {
+            const requestedTitle = normalizeText(recommendation.title).toLocaleLowerCase();
+            const book = allBooks.find((item) => item.title.toLocaleLowerCase() === requestedTitle);
+            return book ? { book, reason: normalizeText(recommendation.reason) } : null;
+          })
+          .filter(Boolean);
+
+        recommendations.forEach(({ book, reason }, index) => {
+          recommendationGrid.appendChild(createRecommendationCard(book, reason, index));
+        });
+
+        if (!recommendations.length && !result.summary) {
+          const empty = document.createElement('p');
+          empty.className = 'curator-note';
+          empty.textContent = 'La IA no encontró títulos del catálogo para esta búsqueda. Prueba con otro tema.';
+          recommendationGrid.appendChild(empty);
+        }
+
+        selectionCount.textContent = `${recommendations.length} ${recommendations.length === 1 ? 'libro' : 'libros'}`;
+        assistantStatus.textContent = recommendations.length
+          ? 'Selección preparada con títulos del catálogo.'
+          : 'No se encontraron títulos coincidentes en el catálogo.';
+      }
+
+      function showSelectionMessage(message) {
+        const empty = document.createElement('div');
+        empty.className = 'selection-empty';
+        const text = document.createElement('strong');
+        text.textContent = message;
+        empty.appendChild(text);
+        recommendationGrid.replaceChildren(empty);
+      }
+
+      async function handleAssistantQuery() {
+        const question = questionInput.value.trim();
+
+        if (!question) {
+          assistantStatus.textContent = 'Escribe qué tipo de lectura buscas.';
+          questionInput.focus();
+          return;
+        }
+
+        if (!allBooks.length) {
+          assistantStatus.textContent = 'No hay libros cargados. Revisa la conexión con el servicio de catálogo.';
+          return;
+        }
+
+        sendQuestionBtn.disabled = true;
+        selectionCount.textContent = 'Preparando';
+        assistantStatus.textContent = 'DeepSeek está preparando tu selección…';
+        showSelectionMessage('Buscando en el catálogo…');
+
+        try {
+          const answer = await askOllama(question, buildCatalogText(allBooks));
+          renderCuratorResponse(answer);
+        } catch (error) {
+          showSelectionMessage('No se pudo preparar la selección.');
+          selectionCount.textContent = 'Sin respuesta';
+          assistantStatus.textContent = error.message || 'No fue posible conectar con Ollama en http://127.0.0.1:11434.';
+        } finally {
+          sendQuestionBtn.disabled = false;
+        }
+      }
+
+      function setActiveView(viewName) {
+        const catalog = document.getElementById('catalogView');
+        const assistant = document.getElementById('assistantView');
+        const catalogTab = document.getElementById('catalogTab');
+        const assistantTab = document.getElementById('assistantTab');
+
+        const isCatalog = viewName === 'catalog';
+        catalog.classList.toggle('active', isCatalog);
+        assistant.classList.toggle('active', !isCatalog);
+        catalogTab.classList.toggle('active', isCatalog);
+        assistantTab.classList.toggle('active', !isCatalog);
+      }
+
       async function loadBooks() {
         try {
           updateStatus('Cargando…', true);
           const books = await fetchBooks();
           allBooks = books;
+          assistantBookCount.textContent = String(books.length);
           currentPage = 1;
           renderPage();
           updateStatus('Conectado', true);
         } catch (error) {
           allBooks = [];
+          assistantBookCount.textContent = '0';
           grid.innerHTML = `<div class="empty-state">${error.message}</div>`;
           pagination.innerHTML = '';
           updateStatus('Sin conexión', false);
@@ -310,6 +555,20 @@
       closeModalBtn.addEventListener('click', closeModal);
       modal.addEventListener('click', (event) => {
         if (event.target === modal) closeModal();
+      });
+
+      document.getElementById('assistantBtn').addEventListener('click', () => setActiveView('assistant'));
+      document.getElementById('assistantTab').addEventListener('click', () => setActiveView('assistant'));
+      document.getElementById('catalogTab').addEventListener('click', () => setActiveView('catalog'));
+      sendQuestionBtn.addEventListener('click', handleAssistantQuery);
+      questionInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) handleAssistantQuery();
+      });
+      document.querySelectorAll('.idea-button').forEach((button) => {
+        button.addEventListener('click', () => {
+          questionInput.value = button.dataset.question;
+          handleAssistantQuery();
+        });
       });
 
       saveSettingsBtn.addEventListener('click', () => {
